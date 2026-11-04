@@ -9,8 +9,10 @@ documentation address range; replace it with your router's LAN address.
 
 There is no signed package repository for this split yet (see
 [README.md](../README.md)). Until one is published from this repository,
-install from a file you built yourself, or from a firmware image you
-built yourself.
+install from a tagged Release file, a file you built yourself, or from
+a firmware image you built yourself. Release files are unsigned: on
+25.12 install the `.apk` with `--allow-untrusted`, and check the
+matching `SHA256SUMS` file first.
 
 ## Requirements
 

@@ -18,12 +18,19 @@ const job = name => {
 	return next < 0 ? CI.slice(start) : CI.slice(start, start + 1 + next);
 };
 
-test('ci: checks plus an unsigned build, no signing, no release job', () => {
+test('ci: checks plus an unsigned build, plus a tag-only release job', () => {
 	const checks = job('checks');
 	const build = job('build');
+	const release = job('release');
 	assert.match(checks, /node --test tests\//);
 	assert.match(checks, /dev\/i18n\/update\.sh --check/);
 	assert.match(build, /dev\/build\/sdk-build\.sh/);
+	assert.match(release, /needs: build/);
+	assert.match(release, /startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+	assert.match(release, /contents: write/);
+	assert.match(release, /gh release (create|upload)/);
+	assert.match(release, /netpath-25\.12\.4/);
+	assert.match(release, /netpath-24\.10\.8/);
 	assert.doesNotMatch(CI, /NETPATH_SIGN_KEY|NETPATH_USIGN_KEY|release-signing/);
-	assert.doesNotMatch(CI, /\n  release:\n|\n  repository:\n/);
+	assert.doesNotMatch(CI, /\n  repository:\n/);
 });

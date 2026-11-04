@@ -53,12 +53,15 @@ copying `luci-app-netpath/` into a feed directory (the way the
 PonWrt/HG5585F firmware does it) and selecting
 `CONFIG_PACKAGE_luci-app-netpath=y`.
 
-There is no signed package repository for this split yet: the signed
-repository and its keys lived in the theme repository, and they do not
-carry over. Do not trust a repository index that claims to be this
-project's until one is published from here. Until then, install from
-a file you built yourself, or from a firmware image you built
-yourself, and check `SHA256SUMS` from the same build.
+Tagged releases (`v*`) carry the unsigned build for both SDKs: the
+25.12 `.apk` and the 24.10 `.ipk`, with a `SHA256SUMS` file per SDK.
+Download them from [Releases](https://github.com/pg-go/luci-app-netpath/releases).
+There is still no signed package repository: the signed repository and
+its keys lived in the theme repository, and they do not carry over. Do
+not trust a repository index that claims to be this project's until
+one is published from here. Until then, install from a Release file, a
+file you built yourself, or a firmware image you built yourself, and
+check `SHA256SUMS` from the same build.
 
 ## Develop
 
