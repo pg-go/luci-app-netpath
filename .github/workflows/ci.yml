@@ -75,7 +75,7 @@ jobs:
 
       - name: Translation templates and catalogues up to date
         # LuCI's i18n-scan.pl / i18n-update.pl at the SDK's luci feed commit
-        run: bash dev/i18n/update.sh --check
+        run: dev/i18n/update.sh --check
 
       - name: DOM sink check
         run: node security-tests/check_dom_sinks.js
@@ -117,7 +117,7 @@ jobs:
       - name: Build with the pinned SDK (verifies the package)
         run: |
           podman --version
-          bash dev/build/sdk-build.sh "$SDK_RELEASE" HEAD
+          dev/build/sdk-build.sh "$SDK_RELEASE" HEAD
 
       - name: Upload package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
