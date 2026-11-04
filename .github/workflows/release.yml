@@ -1,0 +1,94 @@
+name: Release
+
+# Manual release only. Nothing runs on push or on tag.
+#
+# How to use it:
+#   1. Actions -> Release -> Run workflow
+#   2. Enter the version, for example 1.0.14 (no leading v).
+#      It must match PKG_VERSION in luci-app-netpath/Makefile.
+#      To release a new version, change that one line first.
+#   3. Wait for the single job to finish. It builds the 25.12 apk
+#      and the 24.10 ipk in one job, then creates the Release
+#      v<version> with both packages and their SHA256SUMS files.
+#
+# This is deliberately separate from CI: it does not wait for the
+# test/i18n/security checks job, and it does not download artifacts
+# from another job. The SDK build script itself still verifies every
+# built package before anything is uploaded, so a bad build still
+# fails here instead of publishing.
+#
+# The Release files are unsigned, check SHA256SUMS. There is still
+# no signed package repository.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, for example 1.0.14 (no leading v; must match PKG_VERSION in luci-app-netpath/Makefile)'
+        required: true
+        default: '1.0.14'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Check the version matches the Makefile
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::version must look like 1.0.14, got: $version"; exit 1 ;;
+          esac
+          make_version="$(sed -n 's/^PKG_VERSION:=//p' luci-app-netpath/Makefile)"
+          if [ "$version" != "$make_version" ]; then
+            echo "::error::you entered $version but PKG_VERSION in luci-app-netpath/Makefile is $make_version; change that one line first, then run this workflow again with $make_version"
+            exit 1
+          fi
+          echo "Releasing NetPath $version (Makefile agrees)"
+
+      - name: Build 25.12 apk
+        run: |
+          podman --version
+          bash dev/build/sdk-build.sh 25.12.4 HEAD
+
+      - name: Build 24.10 ipk
+        run: |
+          podman --version
+          bash dev/build/sdk-build.sh 24.10.8 HEAD
+
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v${{ inputs.version }}"
+          cp dist/25.12.4/SHA256SUMS SHA256SUMS-25.12.4
+          cp dist/24.10.8/SHA256SUMS SHA256SUMS-24.10.8
+          notes="Unsigned build of NetPath $tag: 25.12 apk and 24.10 ipk. There is no signed package repository yet, so install the apk with --allow-untrusted and check the matching SHA256SUMS file first."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" --clobber dist/25.12.4/*.apk dist/24.10.8/*.ipk SHA256SUMS-25.12.4 SHA256SUMS-24.10.8
+          else
+            gh release create "$tag" --title "NetPath $tag" --notes "$notes" dist/25.12.4/*.apk dist/24.10.8/*.ipk SHA256SUMS-25.12.4 SHA256SUMS-24.10.8
+          fi
