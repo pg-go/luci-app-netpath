@@ -87,8 +87,15 @@ jobs:
           cp dist/25.12.4/SHA256SUMS SHA256SUMS-25.12.4
           cp dist/24.10.8/SHA256SUMS SHA256SUMS-24.10.8
           notes="Unsigned build of NetPath $tag: 25.12 apk and 24.10 ipk. There is no signed package repository yet, so install the apk with --allow-untrusted and check the matching SHA256SUMS file first."
+          # A tag with this name may already exist locally in the checkout
+          # (for example an old manual v1.0.14 tag pointing at an older
+          # commit). gh refuses to create a Release from such a tag unless
+          # a target is given, and using it as-is would point the Release
+          # at the old commit instead of the code that was just built.
+          # Drop the local tag and always tag the commit that was built.
+          git tag -d "$tag" 2>/dev/null || true
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" --clobber dist/25.12.4/*.apk dist/24.10.8/*.ipk SHA256SUMS-25.12.4 SHA256SUMS-24.10.8
           else
-            gh release create "$tag" --title "NetPath $tag" --notes "$notes" dist/25.12.4/*.apk dist/24.10.8/*.ipk SHA256SUMS-25.12.4 SHA256SUMS-24.10.8
+            gh release create "$tag" --target "$GITHUB_SHA" --title "NetPath $tag" --notes "$notes" dist/25.12.4/*.apk dist/24.10.8/*.ipk SHA256SUMS-25.12.4 SHA256SUMS-24.10.8
           fi
