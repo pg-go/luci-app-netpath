@@ -1,0 +1,135 @@
+name: CI
+
+# Tests and security checks on every push and pull request; the dashboard
+# package built with the pinned OpenWrt SDK. There is no signed package
+# repository or release publishing in this split yet: a tag push only
+# runs the same checks and the same unsigned build as a main push.
+#
+# The package is built for OpenWrt 25.12 (apk) and 24.10 (ipk).
+#
+# Every action is pinned to a full commit SHA.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # ucode as pinned by OpenWrt 25.12 (package/utils/ucode PKG_SOURCE_VERSION)
+  UCODE_REPO: https://github.com/jow-/ucode.git
+  UCODE_REV: 85922056ef7abeace3cca3ab28bc1ac2d88e31b1
+  # the SDK releases built (keep in step with the build matrix below)
+  SDK_APK: 25.12.4
+  SDK_IPK: 24.10.8
+
+jobs:
+  checks:
+    name: Tests and security checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Build ucode (for the rpcd plugin tests); install gettext
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake libjson-c-dev gettext
+          git init -q "$RUNNER_TEMP/ucode-src"
+          git -C "$RUNNER_TEMP/ucode-src" fetch -q --depth 1 "$UCODE_REPO" "$UCODE_REV"
+          git -C "$RUNNER_TEMP/ucode-src" checkout -q FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/ucode-src" rev-parse HEAD)" = "$UCODE_REV"
+          cmake -S "$RUNNER_TEMP/ucode-src" -B "$RUNNER_TEMP/ucode-build" \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ucode" \
+            -DCMAKE_C_FLAGS=-Wno-error=discarded-qualifiers \
+            -DUBUS_SUPPORT=OFF -DUCI_SUPPORT=OFF -DULOOP_SUPPORT=OFF -DRTNL_SUPPORT=OFF \
+            -DNL80211_SUPPORT=OFF -DRESOLV_SUPPORT=OFF -DDIGEST_SUPPORT=OFF \
+            -DLOG_SUPPORT=OFF -DSOCKET_SUPPORT=OFF -DZLIB_SUPPORT=OFF
+          cmake --build "$RUNNER_TEMP/ucode-build" -j"$(nproc)"
+          cmake --install "$RUNNER_TEMP/ucode-build"
+          echo "UCODE=$RUNNER_TEMP/ucode/bin/ucode" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$RUNNER_TEMP/ucode/lib" >> "$GITHUB_ENV"
+
+      - name: Unit tests
+        env:
+          # the catalogue tests must not skip msgfmt here
+          NETPATH_REQUIRE_GETTEXT: '1'
+        run: node --test tests/
+
+      - name: Translation templates and catalogues up to date
+        # LuCI's i18n-scan.pl / i18n-update.pl at the SDK's luci feed commit
+        run: dev/i18n/update.sh --check
+
+      - name: DOM sink check
+        run: node security-tests/check_dom_sinks.js
+
+      - name: ACL policy test
+        run: node security-tests/test_acl_policy.js
+
+      - name: Private address check
+        run: node security-tests/check_private_addresses.js
+
+  build:
+    name: Build package (OpenWrt ${{ matrix.sdk }})
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sdk: 25.12.4
+            fmt: apk
+          - sdk: 24.10.8
+            fmt: ipk
+    env:
+      SDK_RELEASE: ${{ matrix.sdk }}
+      FMT: ${{ matrix.fmt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Build with the pinned SDK (verifies the package)
+        run: |
+          podman --version
+          dev/build/sdk-build.sh "$SDK_RELEASE" HEAD
+
+      - name: Upload package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: netpath-${{ env.SDK_RELEASE }}
+          path: |
+            dist/${{ env.SDK_RELEASE }}/*.apk
+            dist/${{ env.SDK_RELEASE }}/*.ipk
+            dist/${{ env.SDK_RELEASE }}/SHA256SUMS
+            dist/${{ env.SDK_RELEASE }}/BUILDINFO
+            dist/${{ env.SDK_RELEASE }}/packages.adb
+            dist/${{ env.SDK_RELEASE }}/Packages
+            dist/${{ env.SDK_RELEASE }}/Packages.gz
+            dist/${{ env.SDK_RELEASE }}/Packages.sig
+          if-no-files-found: error
