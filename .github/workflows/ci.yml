@@ -1,9 +1,10 @@
 name: CI
 
 # Tests and security checks on every push and pull request; the dashboard
-# package built with the pinned OpenWrt SDK. There is no signed package
-# repository or release publishing in this split yet: a tag push only
-# runs the same checks and the same unsigned build as a main push.
+# package built with the pinned OpenWrt SDK. A tag push (v*) also
+# publishes a GitHub Release with the unsigned apk/ipk files, so anyone
+# can download them from Releases. There is still no signed package
+# repository: the Release files are unsigned, check SHA256SUMS.
 #
 # The package is built for OpenWrt 25.12 (apk) and 24.10 (ipk).
 #
@@ -75,7 +76,7 @@ jobs:
 
       - name: Translation templates and catalogues up to date
         # LuCI's i18n-scan.pl / i18n-update.pl at the SDK's luci feed commit
-        run: dev/i18n/update.sh --check
+        run: bash dev/i18n/update.sh --check
 
       - name: DOM sink check
         run: node security-tests/check_dom_sinks.js
@@ -117,7 +118,7 @@ jobs:
       - name: Build with the pinned SDK (verifies the package)
         run: |
           podman --version
-          dev/build/sdk-build.sh "$SDK_RELEASE" HEAD
+          bash dev/build/sdk-build.sh "$SDK_RELEASE" HEAD
 
       - name: Upload package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -133,3 +134,30 @@ jobs:
             dist/${{ env.SDK_RELEASE }}/Packages.gz
             dist/${{ env.SDK_RELEASE }}/Packages.sig
           if-no-files-found: error
+
+  release:
+    name: Publish Release (tag only)
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download build artifacts and publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          gh run download "$GITHUB_RUN_ID" -n netpath-25.12.4 -D release/25.12.4
+          gh run download "$GITHUB_RUN_ID" -n netpath-24.10.8 -D release/24.10.8
+          cp release/25.12.4/SHA256SUMS release/SHA256SUMS-25.12.4
+          cp release/24.10.8/SHA256SUMS release/SHA256SUMS-24.10.8
+          notes="Unsigned build of NetPath $GITHUB_REF_NAME: 25.12 apk and 24.10 ipk. There is no signed package repository yet, so install the apk with --allow-untrusted and check the matching SHA256SUMS file first."
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" --clobber release/25.12.4/*.apk release/24.10.8/*.ipk release/SHA256SUMS-25.12.4 release/SHA256SUMS-24.10.8
+          else
+            gh release create "$GITHUB_REF_NAME" --title "NetPath $GITHUB_REF_NAME" --notes "$notes" release/25.12.4/*.apk release/24.10.8/*.ipk release/SHA256SUMS-25.12.4 release/SHA256SUMS-24.10.8
+          fi
