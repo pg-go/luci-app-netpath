@@ -1,0 +1,1426 @@
+/*
+ * NetPath dashboard (luci-app-netpath)
+ *
+ * Styled only through the shared theme tokens (--v-*), each with a
+ * fallback so the app also reads well under themes that do not define
+ * them. Everything is scoped under .np-app; class names use the np-
+ * prefix and avoid the names the NetPath theme shell uses.
+ *
+ *  1. Tokens          5. Hero: network path     9. Clients table
+ *  2. Base            6. System                10. Talkers, SSIDs
+ *  3. Layout          7. Chart                 11. Drawer
+ *  4. Head, health    8. Radios                12. Small screens, motion
+ */
+
+/* ------------------------------------------------------------ 1. tokens */
+
+.np-app {
+	--np-bg: var(--v-bg, #f3f4f6);
+	--np-surface: var(--v-surface, #ffffff);
+	--np-surface-2: var(--v-surface-2, #f6f7f9);
+	--np-surface-3: var(--v-surface-3, #eceef1);
+	--np-line: var(--v-line, #e2e5e9);
+	--np-line-2: var(--v-line-2, #cbd0d6);
+	--np-text: var(--v-text, #15181c);
+	--np-text-2: var(--v-text-2, #4b525b);
+	--np-text-3: var(--v-text-3, #5f666f);   /* 4.5:1 on --np-surface-3 (tags) */
+	--np-accent: var(--v-accent, #3563e9);
+	--np-accent-ink: var(--v-accent-ink, #ffffff);
+	--np-accent-soft: var(--v-accent-soft, rgba(53, 99, 233, .12));
+	--np-ok: var(--v-ok, #0c7f63);
+	--np-ok-soft: var(--v-ok-soft, rgba(12, 127, 99, .11));
+	--np-warn: var(--v-warn, #9a5b00);
+	--np-warn-soft: var(--v-warn-soft, rgba(214, 138, 0, .15));
+	--np-err: var(--v-err, #c42b2b);
+	--np-err-soft: var(--v-err-soft, rgba(196, 43, 43, .1));
+	--np-info: var(--v-info, #1f63c6);
+	--np-info-soft: var(--v-info-soft, rgba(31, 99, 198, .1));
+	--np-font: var(--v-font, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+	--np-mono: var(--v-mono, ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace);
+	--np-fs-micro: var(--v-fs-micro, 10.5px);   /* the theme's type scale */
+	--np-fs-sm: var(--v-fs-sm, 12px);
+	--np-fs-base: var(--v-fs-base, 13px);
+	--np-fs-md: var(--v-fs-md, 14px);
+	--np-fs-lg: var(--v-fs-lg, 16px);
+	--np-fs-xl: var(--v-fs-xl, 20px);
+	--np-fs-2xl: var(--v-fs-2xl, 24px);
+	--np-r-sm: var(--v-r-sm, 6px);
+	--np-r: var(--v-r, 10px);
+	--np-r-lg: var(--v-r-lg, 14px);
+	--np-ctl: var(--v-ctl-h, 36px);       /* every control: buttons, fields, chips */
+	--np-r-ctl: var(--v-r, 6px);          /* their corners, as the theme's controls */
+	--np-shadow: var(--v-shadow, 0 1px 2px rgba(16, 20, 24, .05), 0 1px 1px rgba(16, 20, 24, .03));
+	--np-shadow-pop: var(--v-shadow-pop, 0 12px 32px rgba(16, 20, 24, .16), 0 2px 6px rgba(16, 20, 24, .08));
+
+	/* derived: readable accent for text/strokes on surfaces (a lime or
+	   vermilion accent is a fill colour, not a text colour) */
+	--np-accent-text: color-mix(in oklab, var(--np-accent) 58%, var(--np-text));
+	--np-accent-line: color-mix(in oklab, var(--np-accent) 78%, var(--np-text));
+	/* charts: the theme's categorical chart palette (--v-chart-*), in
+	   fixed order: uplink, 2.4 GHz, 5 GHz, 6 GHz, CPU, spare */
+	--np-chart-1: var(--v-chart-1, #6f9c00);
+	--np-chart-2: var(--v-chart-2, #2a78d6);
+	--np-chart-3: var(--v-chart-3, #e0632f);
+	--np-chart-4: var(--v-chart-4, #0f9fb0);
+	--np-chart-5: var(--v-chart-5, #8b5cf6);
+	--np-chart-6: var(--v-chart-6, #d55181);
+	--np-chart-grid: var(--v-chart-grid, color-mix(in srgb, var(--np-text) 8%, transparent));
+	--np-chart-axis: var(--v-chart-axis, var(--np-text-3));
+	--np-fill-op: var(--v-chart-fill-opacity, .22);
+	/* bands: identity colours, the same everywhere (badges, tiles, charts) */
+	--np-b2: var(--np-chart-2);
+	--np-b5: var(--np-chart-3);
+	--np-b6: var(--np-chart-4);
+	--np-b60: var(--np-text-2);
+	--np-band-ink: 60%;   /* band colour in a chip's text: 4.5:1 on light surfaces */
+	--np-series-up: var(--np-chart-1);
+	/* throughput directions: download keeps the uplink colour, upload
+	   takes one that no band uses */
+	--np-dir-dn: var(--np-chart-1);
+	--np-dir-up: var(--np-chart-5);
+	--np-mem: var(--np-info);
+	--np-hover: color-mix(in srgb, var(--np-surface-2) 70%, var(--np-surface-3));
+	--np-av-l: 92%;
+	--np-av-s: 55%;
+	--np-av-ink-l: 34%;
+	--np-scrim: rgba(12, 14, 17, .32);
+	--np-sheet-shadow: -18px 0 48px rgba(12, 14, 17, .16), -2px 0 8px rgba(12, 14, 17, .06);
+}
+
+/* touch: controls follow the pointer, not the width (the theme sets
+   --v-ctl-h the same way; this is the fallback under other themes) */
+@media (pointer: coarse) {
+	.np-app { --np-ctl: var(--v-ctl-h, 44px); }
+}
+
+html[data-darkmode="true"] .np-app {
+	--np-bg: var(--v-bg, #0f1113);
+	--np-surface: var(--v-surface, #171a1d);
+	--np-surface-2: var(--v-surface-2, #1d2024);
+	--np-surface-3: var(--v-surface-3, #262a2f);
+	--np-line: var(--v-line, #2a2e33);
+	--np-line-2: var(--v-line-2, #3a4047);
+	--np-text: var(--v-text, #e8eaed);
+	--np-text-2: var(--v-text-2, #b4bac2);
+	--np-text-3: var(--v-text-3, #8c939c);
+	--np-accent: var(--v-accent, #7aa2ff);
+	--np-accent-ink: var(--v-accent-ink, #0b1020);
+	--np-accent-soft: var(--v-accent-soft, rgba(122, 162, 255, .14));
+	--np-ok: var(--v-ok, #3ccf9f);
+	--np-ok-soft: var(--v-ok-soft, rgba(60, 207, 159, .13));
+	--np-warn: var(--v-warn, #f0b54a);
+	--np-warn-soft: var(--v-warn-soft, rgba(240, 181, 74, .14));
+	--np-err: var(--v-err, #ff7a70);
+	--np-err-soft: var(--v-err-soft, rgba(255, 122, 112, .14));
+	--np-info: var(--v-info, #6aa8ff);
+	--np-info-soft: var(--v-info-soft, rgba(106, 168, 255, .14));
+	--np-shadow: var(--v-shadow, 0 1px 0 rgba(255, 255, 255, .03) inset, 0 1px 2px rgba(0, 0, 0, .3));
+	--np-shadow-pop: var(--v-shadow-pop, 0 16px 40px rgba(0, 0, 0, .55));
+	--np-accent-text: color-mix(in oklab, var(--np-accent) 72%, var(--np-text));
+	--np-accent-line: var(--np-accent);
+	--np-chart-1: var(--v-chart-1, #c8f031);
+	--np-chart-2: var(--v-chart-2, #3f8fe8);
+	--np-chart-3: var(--v-chart-3, #de6d33);
+	--np-chart-4: var(--v-chart-4, #1aa6b8);
+	--np-chart-5: var(--v-chart-5, #9a7cf2);
+	--np-chart-6: var(--v-chart-6, #d9588c);
+	--np-chart-grid: var(--v-chart-grid, color-mix(in srgb, var(--np-text) 7%, transparent));
+	--np-fill-op: var(--v-chart-fill-opacity, .2);
+	--np-band-ink: 78%;
+	--np-av-l: 24%;
+	--np-av-s: 30%;
+	--np-av-ink-l: 76%;
+	--np-scrim: rgba(0, 0, 0, .5);
+	--np-sheet-shadow: -18px 0 48px rgba(0, 0, 0, .5);
+}
+
+/* -------------------------------------------------------------- 2. base */
+
+.np-app .np-body { container: vt / inline-size; }
+.np-app {
+	color: var(--np-text);
+	font-family: var(--np-font);
+	font-size: var(--np-fs-base);
+	line-height: 1.45;
+	font-variant-numeric: tabular-nums;
+	-webkit-font-smoothing: antialiased;
+}
+.np-app *, .np-app *::before, .np-app *::after { box-sizing: border-box; }
+.np-app [hidden] { display: none !important; }
+.np-app h2, .np-app h3, .np-app h4, .np-app p, .np-app dl, .np-app dd, .np-app ul { margin: 0; padding: 0; }
+.np-app ul { list-style: none; }
+/* Bare elements some themes style globally (bootstrap: header is a sticky
+   dark navbar with 40px paragraphs, footer a flex row with a top rule,
+   headings sit in 36px line boxes, labels get a fixed font). :where()
+   keeps these at class specificity, so every rule of the app below still
+   wins and only the theme's element selectors are overridden. */
+.np-app :where(header, footer) {
+	position: static; z-index: auto; display: block; overflow: visible;
+	margin: 0; padding: 0; border: 0; border-radius: 0;
+	background: none; box-shadow: none; color: inherit; text-shadow: none;
+}
+.np-app :where(header, footer) :where(p, a, span) { line-height: inherit; text-shadow: none; }
+.np-app :where(header) :where(a) { color: inherit; }
+.np-app :where(h2, h3, h4) { line-height: 1.25; font-family: inherit; }
+.np-app :where(label) { font: inherit; line-height: inherit; }
+.np-app button {
+	/* themes style bare buttons (centred, fixed height, shadows); the
+	   dashboard's buttons are layout elements with their own classes */
+	font: inherit; color: inherit; letter-spacing: normal; text-transform: none;
+	justify-content: flex-start; align-items: center; text-align: left;
+	height: auto; min-height: 0; white-space: normal; user-select: auto; vertical-align: baseline;
+}
+.np-app .np-mono { font-family: var(--np-mono); font-size: .92em; letter-spacing: -.01em; }
+.np-app .np-tn { font-variant-numeric: tabular-nums; }
+.np-app .np-muted { color: var(--np-text-3); }
+.np-app .np-hint { color: var(--np-text-3); font-size: var(--np-fs-sm); }
+.np-app .np-t-warn { color: var(--np-warn); }
+.np-app .np-t-err { color: var(--np-err); }
+.np-app .np-label { display: block; color: var(--np-text-3); font-size: var(--np-fs-micro); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.np-app .np-big { font-size: var(--np-fs-2xl); font-weight: 680; letter-spacing: -.02em; line-height: 1.05; }
+
+.np-app .np-ico {
+	width: 18px; height: 18px; flex: none;
+	fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.np-app .np-ico-sm { width: 14px; height: 14px; }
+
+.np-app :focus-visible {
+	outline: 2px solid var(--np-accent-line);
+	outline-offset: 2px;
+}
+
+/* buttons of the app (the theme's global button look is reset here) */
+.np-app .np-btn {
+	display: inline-flex; align-items: center; gap: 6px;
+	height: var(--np-ctl); padding: 0 12px;
+	border: 1px solid var(--np-line-2); border-radius: var(--np-r-ctl);
+	background: var(--np-surface); color: var(--np-text);
+	font-size: var(--np-fs-base); font-weight: 560; line-height: 1;
+	cursor: pointer; box-shadow: none; text-transform: none; min-width: 0;
+	transition: background .15s, border-color .15s;
+}
+.np-app .np-btn:hover { background: var(--np-surface-2); border-color: var(--np-text-3); }
+.np-app .np-btn[disabled] { opacity: .55; cursor: progress; }
+.np-app .np-btn.np-btn-primary { background: var(--np-accent); border-color: var(--np-accent); color: var(--np-accent-ink); }
+.np-app .np-btn.np-btn-primary:hover { filter: brightness(1.05); }
+.np-app .np-btn.np-btn-ghost { border-color: transparent; background: transparent; color: var(--np-text-2); padding: 0 8px; }
+.np-app .np-btn.np-btn-ghost:hover { background: var(--np-surface-3); color: var(--np-text); }
+
+.np-app .np-link {
+	display: inline-flex; align-items: center; gap: 2px;
+	color: var(--np-accent-text); font-size: var(--np-fs-sm); font-weight: 600; text-decoration: none; white-space: nowrap;
+}
+.np-app .np-link .np-ico { width: 14px; height: 14px; transition: transform .15s; }
+.np-app .np-link:hover { text-decoration: none; color: var(--np-text); }
+.np-app .np-link:hover .np-ico { transform: translateX(2px); }
+
+.np-app .np-pill {
+	display: inline-flex; align-items: center; height: 18px; padding: 0 6px;
+	border-radius: 999px; font-size: var(--np-fs-micro); font-weight: 650; letter-spacing: .02em; white-space: nowrap;
+	background: var(--np-surface-3); color: var(--np-text-2);
+}
+.np-app .np-pill-accent { background: var(--np-accent); color: var(--np-accent-ink); }
+.np-app .np-pill-warn { background: var(--np-warn-soft); color: var(--np-warn); }
+
+.np-app .np-band {
+	display: inline-flex; align-items: center; height: 18px; padding: 0 6px;
+	border-radius: 5px; font-size: var(--np-fs-micro); font-weight: 700; letter-spacing: .01em; white-space: nowrap;
+	--np-bc: var(--np-b60);
+	background: color-mix(in oklab, var(--np-bc) 14%, transparent);
+	color: color-mix(in oklab, var(--np-bc) var(--np-band-ink), var(--np-text));
+}
+.np-app .np-band-2g { --np-bc: var(--np-b2); }
+.np-app .np-band-5g { --np-bc: var(--np-b5); }
+.np-app .np-band-6g { --np-bc: var(--np-b6); }
+
+.np-app .np-gen { font-size: var(--np-fs-micro); color: var(--np-text-3); white-space: nowrap; }
+
+.np-app .np-src {
+	display: inline-flex; align-items: center; height: 16px; padding: 0 5px;
+	border-radius: 4px; font-size: var(--np-fs-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+	background: var(--np-surface-3); color: var(--np-text-3); white-space: nowrap;
+}
+.np-app .np-src-alias { background: var(--np-accent-soft); color: var(--np-accent-text); }
+
+/* avatar: hue from the MAC, icon from the device type */
+.np-app .np-av {
+	display: inline-flex; align-items: center; justify-content: center; flex: none;
+	width: 34px; height: 34px; border-radius: 10px;
+	background: hsl(var(--np-h, 210) var(--np-av-s) var(--np-av-l));
+	color: hsl(var(--np-h, 210) 42% var(--np-av-ink-l));
+}
+.np-app .np-av .np-ico { width: 19px; height: 19px; }
+.np-app .np-av-sm { width: 24px; height: 24px; border-radius: 7px; }
+.np-app .np-av-sm .np-ico { width: 14px; height: 14px; }
+.np-app .np-av-gone { filter: grayscale(1); opacity: .6; }
+
+/* signal glyph */
+.np-app .np-signal { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.np-app .np-sig { width: 20px; height: 16px; flex: none; }
+.np-app .np-sig-off { fill: var(--np-line-2); }
+.np-app .np-sig.np-lvl-ok .np-sig-on { fill: var(--np-ok); }
+.np-app .np-sig.np-lvl-warn .np-sig-on { fill: var(--np-warn); }
+.np-app .np-sig.np-lvl-crit .np-sig-on { fill: var(--np-err); }
+
+/* compact charts (sparklines): line over a fading area, faint top grid
+   and baseline, a marker on the newest value, the axis maximum top-right */
+.np-app .np-sk { position: relative; --np-sc: var(--np-chart-1); }
+.np-app .np-spark { display: block; width: 100%; height: 34px; overflow: visible; }
+.np-app .np-sk-empty .np-spark { opacity: .6; }
+.np-app .np-spark-grid { fill: none; stroke: var(--np-chart-grid); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.np-app .np-spark-base { fill: none; stroke: color-mix(in oklab, var(--np-chart-axis) 35%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.np-app .np-spark-line { fill: none; stroke: var(--np-sc); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.np-app .np-spark-area { stroke: none; }
+.np-app .np-fade-top { stop-color: var(--np-sc); stop-opacity: var(--np-fill-op); }
+.np-app .np-fade-end { stop-color: var(--np-sc); stop-opacity: 0; }
+.np-app .np-spark-s1 .np-spark-line { stroke: var(--np-chart-axis); stroke-width: 1; stroke-dasharray: 2 2.5; opacity: .75; }
+.np-app .np-spark-thresh { fill: none; stroke: var(--np-warn); stroke-width: 1; stroke-dasharray: 3 3; opacity: .75; vector-effect: non-scaling-stroke; }
+.np-app .np-sk-dot {
+	position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%;
+	background: var(--np-sc); box-shadow: 0 0 0 2px var(--np-surface); pointer-events: none;
+}
+.np-app .np-sk-max {
+	position: absolute; right: 0; top: -2px; transform: translateY(-100%);
+	font-size: var(--np-fs-micro); line-height: 1; color: var(--np-chart-axis); white-space: nowrap; pointer-events: none;
+}
+.np-app .np-sk-thresh {
+	position: absolute; transform: translate(-100%, -120%);
+	font-size: var(--np-fs-micro); line-height: 1; color: var(--np-warn); white-space: nowrap; pointer-events: none;
+}
+.np-app .np-sk-note { position: absolute; right: 0; bottom: 4px; font-size: var(--np-fs-micro); color: var(--np-chart-axis); }
+.np-app .np-spark-cpu { --np-sc: var(--np-chart-5); }
+.np-app .np-spark-2g { --np-sc: var(--np-b2); }
+.np-app .np-spark-5g { --np-sc: var(--np-b5); }
+.np-app .np-spark-6g { --np-sc: var(--np-b6); }
+.np-app .np-spark-x { --np-sc: var(--np-text-3); }
+.np-app .np-spark-up { --np-sc: var(--np-series-up); }
+.np-app .np-cap { display: block; margin-top: 3px; font-size: var(--np-fs-micro); line-height: 1.1; color: var(--np-chart-axis); letter-spacing: .02em; white-space: nowrap; }
+.np-app .np-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ------------------------------------------------------------ 3. layout */
+
+/* Tiles are placed by the view (netpath/layout.js): it sets each tile's
+   column (--c), width in columns (--w) and top (--y), and the grid's
+   column count (--cols) and height. Widths and columns follow the grid
+   width here, so only heights wait for script. */
+.np-app .np-grid { --np-gap: 14px; --cols: 1; position: relative; min-height: 200px; }
+.np-app .np-grid-wait { visibility: hidden; }
+.np-app .np-grid > .np-cell, .np-app .np-grid > .np-drop-ghost {
+	--c: 0; --w: 1; --y: 0px; --np-cw: calc((100% - (var(--cols) - 1) * var(--np-gap)) / var(--cols));
+	position: absolute; top: var(--y); box-sizing: border-box; min-width: 0;
+	left: calc(var(--np-cw) * var(--c) + var(--np-gap) * var(--c));
+	width: calc(var(--np-cw) * var(--w) + var(--np-gap) * (var(--w) - 1));
+}
+.np-app .np-cell-off { display: none !important; }
+.np-app .np-drop-ghost { display: none; border: 2px dashed var(--np-accent-line); border-radius: var(--np-r-lg); background: var(--np-accent-soft); }
+.np-app .np-drop-ghost.np-on { display: block; }
+
+/* ----------------------------------------------- 3b. arranging the tiles */
+
+.np-app .np-layout-btn { flex: none; gap: 6px; font-size: var(--np-fs-sm); }
+.np-app .np-layout-btn .np-ico { width: 16px; height: 16px; }
+.np-app .np-layout-btn[aria-pressed="true"] { background: var(--np-accent-soft); color: var(--np-text); }
+@container vt (max-width: 699px) { .np-app .np-layout-btn span { display: none; } }
+
+.np-app .np-editbar {
+	position: sticky; top: calc(var(--v-stick-top, 48px) + 8px); z-index: 6;
+	display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+	margin: 0 0 14px; padding: 12px 14px; border-radius: var(--np-r-lg);
+	border: 1px solid var(--np-accent-line); background: var(--np-surface); box-shadow: var(--np-shadow);
+}
+.np-app .np-editbar[hidden] { display: none; }
+.np-app .np-editbar-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 260px; min-width: 0; }
+.np-app .np-editbar-text strong { font-size: var(--np-fs-base); font-weight: 650; }
+.np-app .np-edit-hidden { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.np-app .np-edit-hidden:empty { display: none; }
+.np-app .np-edit-hidden .np-fchip .np-ico { width: 13px; height: 13px; }
+.np-app .np-editbar-actions { display: flex; gap: 8px; margin-left: auto; }
+/* the chart and network path picks wrap as one group */
+.np-app .np-edit-picks { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 16px; min-width: 0; }
+.np-app .np-edit-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.np-app .np-edit-field label { font-size: var(--np-fs-sm); color: var(--np-text-2); white-space: nowrap; }
+/* narrow: the two picks side by side, each label above its select, so
+   the sticky bar stays short */
+@container vt (max-width: 699px) {
+	.np-app .np-edit-picks { flex: 1 1 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+	.np-app .np-edit-field { flex-direction: column; align-items: stretch; gap: 4px; }
+	.np-app .np-edit-field label { white-space: normal; }
+	.np-app .np-edit-field > .np-select { width: 100%; min-width: 0; }
+}
+.np-app .np-select {
+	appearance: none; -webkit-appearance: none; min-width: 0; max-width: 100%;
+	height: var(--np-ctl); padding: 0 30px 0 10px; margin: 0;
+	border: 1px solid var(--np-line-2); border-radius: var(--np-r-ctl);
+	color: var(--np-text); font: inherit; font-size: var(--np-fs-base); box-shadow: none; cursor: pointer;
+	/* the chevron, as the theme's selects draw it */
+	background: var(--np-surface) no-repeat;
+	background-image: linear-gradient(45deg, transparent 50%, var(--np-text-3) 50%), linear-gradient(135deg, var(--np-text-3) 50%, transparent 50%);
+	background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px, 5px 5px;
+}
+.np-app .np-select:hover { border-color: var(--np-text-3); }
+/* focused or open: the ring of the app's other fields (filter, rename) */
+.np-app .np-select:focus { outline: none; border-color: var(--np-accent-line); box-shadow: 0 0 0 3px var(--np-accent-soft); }
+/* the open list: browsers that can style it (customizable select) draw
+   it like the theme's dropdowns; others keep their own */
+@supports (appearance: base-select) {
+	.np-app .np-select, .np-app .np-select::picker(select) { appearance: base-select; }
+	/* sized by the chosen label here, not the longest: keep room for
+	   the longest ("Mirrored, scale per direction") so the bar holds still */
+	.np-app .np-select { display: inline-flex; align-items: center; min-width: 16em; }
+	.np-app .np-select::picker-icon { display: none; }
+	.np-app .np-select::picker(select) {
+		margin: 4px 0; padding: 4px;
+		border: 1px solid var(--np-line-2); border-radius: var(--np-r-ctl);
+		background: var(--np-surface); color: var(--np-text); box-shadow: var(--np-shadow-pop);
+	}
+	.np-app .np-select option {
+		min-height: 32px; padding: 0 10px; gap: 8px;
+		border-radius: var(--np-r-sm); font-size: var(--np-fs-base); cursor: pointer;
+	}
+	.np-app .np-select:open { outline: none; border-color: var(--np-accent-line); box-shadow: 0 0 0 3px var(--np-accent-soft); }
+	/* below the field when it fits, as the theme's dropdowns open; the
+	   browser's default opens toward the larger space, often upward */
+	.np-app .np-select::picker(select) { position-try-order: normal; }
+	/* the option under the pointer gets the fill, the keyboard's the fill
+	   and the accent bar, as the theme's dropdowns mark them. Opened with
+	   the pointer, the chosen option has :focus without :focus-visible:
+	   unmarked, so it no longer looks like a second row under the pointer */
+	.np-app .np-select option:is(:hover, :focus-visible) { background: var(--np-surface-3); }
+	.np-app .np-select option:focus-visible { box-shadow: inset 2px 0 0 var(--np-accent-text); }
+	.np-app .np-select option:focus { outline: none; }
+	.np-app .np-select option:checked { font-weight: 600; }
+	.np-app .np-select option::checkmark { color: var(--np-accent-text); }
+}
+@container vt (max-width: 699px) {
+	.np-app .np-editbar { padding: 8px 8px 8px 12px; gap: 8px; }
+	.np-app .np-editbar-text { flex-basis: 0; }
+	.np-app .np-editbar-text .np-hint { display: none; }
+}
+
+.np-app .np-ov { display: none; }
+/* arranging: the handle bar takes the place of the tile's head (it names
+   the tile), and the content starts below it (--np-ovh: the bar's height,
+   measured by the view) instead of under it */
+.np-app.np-editing .np-cell { padding-top: calc(var(--np-ovh, 50px) + 16px); }
+.np-app.np-editing .np-cell > .np-tile-head { display: none; }
+.np-app.np-editing .np-ov {
+	display: block; position: absolute; inset: 0; z-index: 4;
+	border: 2px dashed var(--np-accent-line); border-radius: var(--np-r-lg);
+	background: color-mix(in oklab, var(--np-surface) 55%, transparent);
+}
+.np-app .np-ov-bar {
+	display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+	margin: 8px; padding: 6px; border-radius: var(--np-r-sm);
+	background: var(--np-surface); border: 1px solid var(--np-line-2); box-shadow: var(--np-shadow);
+}
+.np-app .np-ov-name { flex: 1 1 auto; min-width: 0; font-weight: 650; font-size: var(--np-fs-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-app .np-ov-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.np-app .np-ov-grip, .np-app .np-ov-btn {
+	display: inline-flex; align-items: center; justify-content: center; flex: none;
+	width: var(--np-ctl); height: var(--np-ctl); min-width: 0; margin: 0; padding: 0; border: 0; border-radius: var(--np-r-ctl);
+	background: transparent; color: var(--np-text-2); box-shadow: none; cursor: pointer;
+}
+.np-app .np-ov-grip { cursor: grab; touch-action: none; background: var(--np-surface-3); color: var(--np-text); }
+.np-app .np-ov-btn:hover:not([disabled]), .np-app .np-ov-grip:hover { background: var(--np-surface-3); color: var(--np-text); }
+.np-app .np-ov-btn[disabled] { opacity: .3; cursor: default; }
+.np-app .np-ov-btn .np-ico, .np-app .np-ov-grip .np-ico { width: 16px; height: 16px; }
+.np-app .np-ov-grip .np-ico { stroke-width: 3.2; }
+.np-app .np-ov-flip .np-ico { transform: scaleX(-1); }
+.np-app .np-ov-hide { margin-left: 4px; }
+.np-app .np-ov-size { min-width: 26px; text-align: center; font-size: var(--np-fs-micro); font-weight: 650; color: var(--np-text-2); }
+.np-app.np-edit-1col .np-ov-col { display: none; }
+/* a narrow tile's bar: two rows at most (the name, then the controls),
+   not three; no ‹ ›, drag and the arrow keys on the grip still move it */
+.np-app .np-cell { container: vtcell / inline-size; }
+/* tiles with a container of their own keep the vtcell name too (below) */
+@container vtcell (max-width: 340px) { .np-app .np-ov-lr { display: none; } }
+
+.np-app.np-editing .np-cell { transition: top .2s ease, left .2s ease; }
+.np-app .np-cell.np-dragging { z-index: 8; transition: none; opacity: .92; box-shadow: 0 18px 40px rgba(0, 0, 0, .28); }
+.np-app .np-dragging .np-ov-grip { cursor: grabbing; }
+.np-app.np-drag-on { user-select: none; -webkit-user-select: none; }
+
+.np-app .np-tile {
+	position: relative;
+	min-width: 0;
+	background: var(--np-surface);
+	border: 1px solid var(--np-line);
+	border-radius: var(--np-r-lg);
+	box-shadow: var(--np-shadow);
+	padding: 16px 18px 18px;
+}
+.np-app .np-tile-head {
+	display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
+	min-height: 28px; margin-bottom: 12px;
+}
+.np-app .np-tile-title {
+	display: inline-flex; align-items: center; gap: 8px; min-width: 0;
+	font-size: var(--np-fs-base); font-weight: 650; letter-spacing: .005em; color: var(--np-text);
+	white-space: nowrap;
+}
+.np-app .np-tile-title .np-ico { color: var(--np-text-3); width: 17px; height: 17px; }
+.np-app .np-tile-extra { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+/* folding: phones only; wider layouts show everything and ignore the state */
+.np-app .np-fold-btn, .np-app .np-sec-head, .np-app .np-radio-sum { display: none; }
+@container vt (max-width: 699px) {
+	.np-app .np-fold-btn {
+		display: inline-flex; align-items: center; justify-content: center; flex: none;
+		width: var(--np-ctl); height: var(--np-ctl); margin: -4px -8px -4px 0; padding: 0; border: 0; border-radius: var(--np-r-ctl);
+		background: transparent; color: var(--np-text-3); cursor: pointer; box-shadow: none; min-width: 0;
+	}
+	.np-app .np-fold-btn:hover { background: var(--np-surface-3); color: var(--np-text); }
+	.np-app .np-fold-btn .np-ico { width: 16px; height: 16px; transform: rotate(-90deg); transition: transform .2s; }
+	.np-app .np-fold-btn[aria-expanded="false"] .np-ico { transform: rotate(90deg); }
+	.np-app .np-folded > :not(.np-tile-head):not(.np-fold-keep) { display: none !important; }
+	.np-app .np-folded > .np-tile-head { margin-bottom: 0; }
+	.np-app .np-folded.np-hero > .np-tile-head { margin-bottom: 2px; }
+	.np-app .np-folded.np-hero .np-kpis { margin-top: 4px; }
+	.np-app .np-hint-wide { display: none; }
+
+	/* radios become one tile: a head, then condensed rows or flat cards */
+	.np-app .np-radios {
+		padding: 14px 14px 10px; background: var(--np-surface); border: 1px solid var(--np-line);
+		border-radius: var(--np-r-lg); box-shadow: var(--np-shadow);
+	}
+	.np-app .np-sec-head { display: flex; }
+	.np-app .np-radios.np-folded .np-radio-sum { display: flex; flex-direction: column; margin-top: 8px; }
+	.np-app .np-radio-list { gap: 0; }
+	.np-app .np-radio-list > .np-radio { border: 0; border-top: 1px solid var(--np-line); border-radius: 0; box-shadow: none; padding: 14px 0 12px; background: transparent; }
+	.np-app .np-radio-list > .np-radio::before { display: none; }
+}
+.np-app .np-rsum {
+	display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 2px; margin: 0;
+	border: 0; border-top: 1px solid var(--np-line); border-radius: 0; background: transparent; box-shadow: none;
+	color: var(--np-text); text-align: left; cursor: pointer; font-weight: 400;
+}
+.np-app .np-rsum:hover { background: var(--np-surface-2); }
+.np-app .np-rsum .np-status { margin: 0; }
+.np-app .np-rsum-main { font-weight: 650; font-size: var(--np-fs-base); white-space: nowrap; }
+.np-app .np-rsum-sub { font-size: var(--np-fs-sm); color: var(--np-text-3); white-space: nowrap; }
+.np-app .np-rsum-rate { margin-left: auto; font-size: var(--np-fs-sm); color: var(--np-text-2); white-space: nowrap; }
+.np-app .np-rsum > .np-ico { color: var(--np-text-3); }
+
+.np-app .np-empty {
+	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+	padding: 32px 16px; text-align: center; color: var(--np-text-3);
+}
+.np-app .np-empty > .np-ico { width: 28px; height: 28px; stroke-width: 1.4; margin-bottom: 4px; }
+.np-app .np-empty-title { color: var(--np-text); font-weight: 620; font-size: var(--np-fs-md); }
+.np-app .np-empty .np-btn { margin-top: 8px; }
+.np-app .np-empty-inline { color: var(--np-text-3); font-size: var(--np-fs-sm); padding: 4px 0; }
+
+/* ----------------------------------------------------- 4. head, health */
+
+.np-app .np-head {
+	display: flex; align-items: center; gap: 14px;
+	margin: 2px 0 14px;
+}
+.np-app .np-orb {
+	position: relative; flex: none;
+	width: 38px; height: 38px; border-radius: 50%;
+	display: inline-flex; align-items: center; justify-content: center;
+	--np-oc: var(--np-ok);
+	background: color-mix(in oklab, var(--np-oc) 16%, transparent);
+}
+.np-app .np-orb::after {
+	content: ""; position: absolute; inset: 0; border-radius: 50%;
+	border: 2px solid var(--np-oc); opacity: .35;
+	animation: np-ring 2.6s ease-out infinite;
+}
+.np-app .np-orb-core { width: 14px; height: 14px; border-radius: 50%; background: var(--np-oc); box-shadow: 0 0 0 4px color-mix(in oklab, var(--np-oc) 22%, transparent); }
+.np-app .np-orb-warn { --np-oc: var(--np-warn); }
+.np-app .np-orb-err { --np-oc: var(--np-err); }
+@keyframes np-ring { 0% { transform: scale(.7); opacity: .5; } 100% { transform: scale(1.35); opacity: 0; } }
+
+.np-app .np-head-text { min-width: 0; flex: 1; }
+.np-app .np-headline {
+	font-size: var(--np-fs-xl); font-weight: 680; letter-spacing: -.015em; line-height: 1.2; color: var(--np-text);
+	margin: 0; padding: 0; border: 0; text-transform: none;
+}
+.np-app .np-subline { color: var(--np-text-3); font-size: var(--np-fs-sm); margin-top: 2px; }
+
+.np-app .np-livepill {
+	flex: none; display: inline-flex; align-items: center; gap: 8px; isolation: isolate;
+	height: 30px; padding: 0 12px 0 10px; border-radius: 999px;
+	border: 1px solid var(--np-line); background: var(--np-surface);
+	font-size: var(--np-fs-sm); font-weight: 560; color: var(--np-text-2); white-space: nowrap;
+}
+.np-app .np-live-beat { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--np-beat-c, var(--np-ok)); }
+/* the beat is a ring that scales and fades (compositor only; an animated
+   box-shadow repainted every frame). It sits behind the dot (z-index -1 in
+   the pill's stacking context) so the dot keeps its colour, and it is
+   transparent unless the animation runs: nothing shows without motion. */
+.np-app .np-live-beat::after {
+	content: ""; position: absolute; inset: 0; z-index: -1; border-radius: 50%;
+	background: color-mix(in oklab, var(--np-beat-c, var(--np-ok)) 45%, transparent);
+	opacity: 0;
+	animation: np-beat 2s ease-out infinite;
+}
+.np-app .np-live-paused .np-live-beat { --np-beat-c: var(--np-text-3); }
+.np-app .np-live-paused .np-live-beat::after { animation: none; }
+.np-app .np-live-err .np-live-beat { --np-beat-c: var(--np-warn); }
+@keyframes np-beat { 0% { transform: scale(1); opacity: 1; } 70%, 100% { transform: scale(2.75); opacity: 0; } }
+
+.np-app .np-health {
+	display: grid; gap: 10px; margin-bottom: 14px;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+@container vt (min-width: 700px) { .np-app .np-health { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container vt (min-width: 1100px) { .np-app .np-health { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+/* wired-only: four checks */
+@container vt (min-width: 700px) { .np-app.np-wired .np-health { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container vt (min-width: 1100px) { .np-app.np-wired .np-health { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.np-app .np-chip {
+	display: flex; align-items: flex-start; gap: 10px; min-width: 0;
+	padding: 11px 12px; border-radius: var(--np-r);
+	border: 1px solid var(--np-line); background: var(--np-surface);
+	color: var(--np-text); text-decoration: none; text-align: left; cursor: pointer;
+	box-shadow: var(--np-shadow);
+	transition: border-color .15s, transform .15s, background .15s;
+	--np-cc: var(--np-ok);
+}
+.np-app .np-chip:hover { text-decoration: none; border-color: color-mix(in oklab, var(--np-cc) 55%, var(--np-line)); transform: translateY(-1px); }
+.np-app .np-chip-warn { --np-cc: var(--np-warn); background: color-mix(in oklab, var(--np-warn) 7%, var(--np-surface)); border-color: color-mix(in oklab, var(--np-warn) 35%, var(--np-line)); }
+.np-app .np-chip-err { --np-cc: var(--np-err); background: color-mix(in oklab, var(--np-err) 7%, var(--np-surface)); border-color: color-mix(in oklab, var(--np-err) 35%, var(--np-line)); }
+.np-app .np-chip-info { --np-cc: var(--np-text-3); }
+.np-app .np-chip-ico {
+	flex: none; width: 26px; height: 26px; border-radius: 8px;
+	display: inline-flex; align-items: center; justify-content: center;
+	background: color-mix(in oklab, var(--np-cc) 15%, transparent); color: var(--np-cc);
+}
+.np-app .np-chip-ico .np-ico { width: 15px; height: 15px; stroke-width: 2.1; }
+.np-app .np-chip-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.np-app .np-chip-top { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.np-app .np-chip-title { font-size: var(--np-fs-micro); line-height: 1.3; font-weight: 650; color: var(--np-text-3); text-transform: uppercase; letter-spacing: .05em; }
+.np-app .np-chip-value { font-size: var(--np-fs-md); font-weight: 700; letter-spacing: -.01em; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.np-app .np-chip-reason {
+	font-size: var(--np-fs-sm); color: var(--np-text-2); margin-top: 2px;
+	display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* -------------------------------------------------- 5. hero: network path */
+
+.np-app .np-hero { container: vthero vtcell / inline-size; overflow: hidden; display: flex; flex-direction: column; }
+
+.np-app .np-kpis {
+	position: relative; z-index: 1;
+	display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
+	margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--np-line);
+}
+.np-app .np-kpi {
+	display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0;
+	padding: 6px 10px; margin: 0; border: 0; border-radius: var(--np-r-sm);
+	background: transparent; color: var(--np-text); text-align: left; box-shadow: none; height: auto; text-transform: none; font-weight: 400;
+}
+.np-app button.np-kpi { cursor: pointer; }
+.np-app button.np-kpi:hover { background: var(--np-surface-2); }
+.np-app .np-kpi + .np-kpi { box-shadow: -1px 0 0 var(--np-line); border-radius: 0 var(--np-r-sm) var(--np-r-sm) 0; }
+.np-app .np-kpi-label { font-size: var(--np-fs-micro); font-weight: 650; color: var(--np-text-3); text-transform: uppercase; letter-spacing: .05em; }
+.np-app .np-kpi-value { font-size: var(--np-fs-xl); font-weight: 700; letter-spacing: -.02em; line-height: 1.2; white-space: nowrap; }
+.np-app .np-kpi-sub { max-width: 100%; font-size: var(--np-fs-sm); color: var(--np-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-app .np-kpi-warn .np-kpi-value { color: var(--np-warn); }
+@container vthero (max-width: 700px) {
+	.np-app .np-kpis { grid-template-columns: 1fr 1fr; }
+	.np-app .np-kpi:nth-child(3) { box-shadow: none; }
+}
+.np-app .np-hero::before {
+	content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+	background:
+		radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--np-text-3) 22%, transparent) 1px, transparent 1.4px) 0 0 / 18px 18px;
+	-webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,.55), transparent 85%);
+	mask-image: linear-gradient(180deg, rgba(0,0,0,.55), transparent 85%);
+}
+/* the backdrop (netpath/backdrop.js): a canvas over the dot grid and
+   under the wires and nodes, drawing over the path's height only */
+.np-app .np-backdrop { position: absolute; left: 0; top: 0; pointer-events: none; border-radius: inherit; }
+.np-app .np-backdrop[hidden] { display: none; }
+.np-app .np-path {
+	position: relative;
+	display: grid;
+	/* nodes size to their content instead of stretching to fill fr
+	   columns: that was the blank space inside the gateway/AP cards
+	   and to the right of the client cards */
+	grid-template-columns: max-content max-content max-content max-content;
+	justify-content: start;
+	align-items: stretch;
+	flex: 1;
+	min-height: 210px;
+	padding: 4px 0 8px;
+}
+.np-app .np-wires { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; overflow: visible; }
+.np-app .np-wire { fill: none; stroke: var(--np-line-2); stroke-width: 1.5; transition: stroke .4s; }
+.np-app .np-wire-main { stroke-width: 2.5; }
+.np-app .np-wire-on { stroke: color-mix(in oklab, var(--np-accent-line) 40%, var(--np-line-2)); }
+/* traffic on a wire: dots about 16 px apart moving along it (1.6, 1.05
+   or 0.6 s per 32 px by load), each a small element the view animates with
+   transform, so the compositor moves them without repainting the wires.
+   The SVG flow path is only the static dotted look under reduced motion. */
+.np-app .np-flow {
+	fill: none; stroke: var(--np-accent-line); stroke-width: 2.4; stroke-linecap: round;
+	stroke-dasharray: 1.5 6; opacity: 0;
+}
+.np-app .np-flows, .np-app .np-fwire { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 0; pointer-events: none; }
+.np-app .np-fwire { opacity: 0; transition: opacity .4s; }
+.np-app .np-fwire-on { opacity: .95; }
+/* a 1.5 px dash with round caps of the 2.4 px stroke, centred on its point */
+.np-app .np-fdot { position: absolute; left: -1.95px; top: -1.2px; width: 3.9px; height: 2.4px; border-radius: 1.2px; background: var(--np-accent-line); }
+.np-app .np-fwire-3 .np-fdot { left: -2.25px; top: -1.5px; width: 4.5px; height: 3px; border-radius: 1.5px; }
+
+.np-app .np-node {
+	position: relative; z-index: 1;
+	display: flex; align-items: center; gap: 10px; min-width: 0;
+	padding: 9px 11px; margin: 0;
+	border: 1px solid var(--np-line); border-radius: var(--np-r);
+	background: var(--np-surface); color: var(--np-text);
+	box-shadow: var(--np-shadow);
+	text-align: left; cursor: pointer; height: auto; line-height: 1.3; text-transform: none; font-weight: 400;
+	transition: border-color .15s, transform .15s, box-shadow .15s;
+}
+.np-app .np-node:hover { border-color: color-mix(in oklab, var(--np-accent-line) 60%, var(--np-line)); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(12, 14, 17, .08); background: var(--np-surface); }
+.np-app .np-node-body { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.np-app .np-node-kicker { display: flex; align-items: center; gap: 6px; font-size: var(--np-fs-micro); font-weight: 600; color: var(--np-text-3); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+.np-app .np-node-title { font-size: var(--np-fs-base); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-app .np-node-sub { display: flex; align-items: center; gap: 6px; font-size: var(--np-fs-sm); color: var(--np-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* text alone (the gateway's DNS): a block, so the ellipsis can show */
+.np-app .np-node-sub:not(:has(> *)) { display: block; }
+.np-app .np-node-ico {
+	flex: none; width: 32px; height: 32px; border-radius: 9px;
+	display: inline-flex; align-items: center; justify-content: center;
+	background: var(--np-surface-3); color: var(--np-text-2);
+}
+.np-app .np-node-ico .np-ico { width: 20px; height: 20px; }
+.np-app .np-node-gw { justify-self: start; align-self: center; }
+.np-app .np-node-ap { justify-self: start; align-self: center; padding: 12px 13px; border-color: color-mix(in oklab, var(--np-accent-line) 40%, var(--np-line)); }
+.np-app .np-node-ap .np-node-ico { background: var(--np-accent); color: var(--np-accent-ink); }
+.np-app .np-node-ap .np-node-title { font-size: var(--np-fs-md); }
+.np-app .np-node-gen { text-transform: none; letter-spacing: 0; font-weight: 560; }
+.np-app .np-node-radio { padding: 8px 11px; }
+.np-app .np-node-net, .np-app .np-node-net:hover { text-decoration: none; color: var(--np-text); }
+.np-app .np-node-ssid { padding: 7px 10px; }
+.np-app .np-node-ssid .np-node-title { display: flex; align-items: center; gap: 6px; font-size: var(--np-fs-base); }
+.np-app .np-node-ssid .np-node-title .np-ico { color: var(--np-text-3); }
+.np-app .np-ssid-name span { overflow: hidden; text-overflow: ellipsis; }
+.np-app .np-node-idle { background: var(--np-surface-2); box-shadow: none; }
+.np-app .np-node-idle .np-node-title { color: var(--np-text-2); font-weight: 600; }
+.np-app .np-node-off { opacity: .6; border-style: dashed; }
+
+.np-app .np-dots { display: inline-flex; gap: 3px; }
+.np-app .np-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--np-text-3); }
+.np-app .np-dot.np-lvl-ok { background: var(--np-ok); }
+.np-app .np-dot.np-lvl-warn { background: var(--np-warn); }
+.np-app .np-dot.np-lvl-crit { background: var(--np-err); }
+
+.np-app .np-link-label {
+	position: relative; z-index: 1;
+	display: grid; grid-template-rows: minmax(0, 1fr) 14px minmax(0, 1fr); justify-items: center;
+	align-self: stretch; padding: 0 6px; text-align: center;
+}
+.np-app .np-link-below { grid-row: 3; align-self: start; display: flex; flex-direction: column; align-items: center; }
+.np-app .np-link-rate {
+	display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap;
+	padding: 0 6px; border-radius: 6px; background: var(--np-surface);
+}
+.np-app .np-link-rate .np-ico { width: 13px; height: 13px; align-self: center; stroke-width: 2.2; }
+.np-app .np-link-rate b { font-size: var(--np-fs-lg); font-weight: 700; letter-spacing: -.01em; }
+.np-app .np-link-rate small { font-size: var(--np-fs-micro); color: var(--np-text-3); font-weight: 600; }
+.np-app .np-link-down { grid-row: 1; align-self: end; }
+.np-app .np-link-down .np-ico { color: var(--np-accent-text); }
+.np-app .np-link-up { font-size: var(--np-fs-sm); }
+.np-app .np-link-up b { font-size: var(--np-fs-base); font-weight: 650; color: var(--np-text-2); }
+.np-app .np-link-up .np-ico { color: var(--np-text-3); }
+.np-app .np-link-meta { font-size: var(--np-fs-micro); color: var(--np-text-3); font-family: var(--np-mono); white-space: nowrap; margin-top: 2px;
+	padding: 0 6px; border-radius: 6px; background: var(--np-surface); }
+
+/* the branches spread over the height the tile gets from its row, so a
+   tall neighbour leaves no empty band above or below the diagram */
+/* the levels share their columns across every branch, so an SSID box
+   starts exactly where a LAN port box starts, and a client box starts
+   exactly where the next SSID's client box starts, whatever the boxes'
+   own widths are: the branches use subgrid over three tracks (radio /
+   wired, SSID / port, client), and the nodes stay content-sized
+   (justify-self: start) instead of stretching to the track */
+.np-app .np-branches { display: grid; grid-template-columns: max-content max-content max-content; column-gap: 34px; row-gap: 18px; padding: 2px 0 2px 34px; min-width: 0; }
+.np-app .np-branch { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 34px; row-gap: 8px; align-items: center; min-width: 0; }
+.np-app .np-branch > .np-node { justify-self: start; }
+.np-app .np-branch-ssids { display: grid; grid-template-columns: subgrid; grid-column: 2 / -1; row-gap: 7px; min-width: 0; }
+.np-app .np-branch-ssids > .np-node { justify-self: start; }
+.np-app .np-branch-ssids .np-node { max-width: 260px; }
+/* one SSID row: the SSID card, then one box per Wi-Fi client, each
+   with its own wire from the SSID (like the wired ports beside it);
+   the gap matches the other columns, so the wire has room for its
+   S-curve and its flowing dots */
+.np-app .np-ssid-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; column-gap: 34px; align-items: center; min-width: 0; }
+.np-app .np-ssid-row > .np-node { justify-self: start; }
+.np-app .np-ssid-row > .np-branch-clients { justify-self: start; }
+/* the client boxes: a column, no height cap and no inner scroll, so a
+   scrolled box never leaves its wire behind */
+.np-app .np-branch-clients { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.np-app .np-branch-clients:empty { display: none; }
+/* a leaf device box is slimmer than an SSID or port card, and its name
+   is a size smaller again: with many devices the column stays short
+   and the hierarchy (radio / SSID / device) reads at a glance */
+.np-app .np-node-client { padding: 4px 8px; gap: 6px; }
+.np-app .np-node-client .np-node-title { min-width: 0; font-size: var(--np-fs-micro); font-weight: 600; }
+.np-app .np-node-client .np-client-name { max-width: 180px; }
+.np-app .np-node-client .np-client-sig { font-size: var(--np-fs-micro); color: var(--np-text-3); }
+.np-app .np-node-client .np-dot { flex: none; }
+
+@container vthero (max-width: 700px) {
+	.np-app .np-path { grid-template-columns: minmax(0, 1fr); gap: 12px; min-height: 0; }
+	.np-app .np-node-gw, .np-app .np-node-ap { justify-self: start; min-width: 220px; }
+	.np-app .np-link-label { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; justify-content: flex-start; padding: 0 0 0 44px; }
+	.np-app .np-link-label > * { align-self: center; }
+	.np-app .np-branches { display: flex; flex-direction: column; padding-left: 34px; gap: 12px; }
+	.np-app .np-branch { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
+	.np-app .np-branch > .np-node { justify-self: start; min-width: 200px; }
+	.np-app .np-branch-ssids { display: flex; flex-direction: column; grid-column: auto; padding-left: 34px; }
+	.np-app .np-branch-ssids .np-node { max-width: none; align-self: stretch; }
+	.np-app .np-ssid-row { display: flex; flex-direction: column; grid-column: auto; align-items: flex-start; gap: 4px; }
+	.np-app .np-branch-clients { padding-left: 2px; }
+}
+
+/* ------------------------------------------------------------ 6. system */
+
+.np-app .np-sys { container: vtsys vtcell / inline-size; display: flex; flex-direction: column; gap: 16px; }
+.np-app .np-sys .np-tile-head { margin-bottom: 0; }
+.np-app .np-sys-cpu { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: end; }
+.np-app .np-sys-cpu-l { display: flex; flex-direction: column; gap: 3px; }
+/* a narrow System column puts the sparkline under the load figures */
+/* narrow: the sparkline under the numbers, so the load figures never meet its label */
+@container vtsys (max-width: 420px) { .np-app .np-sys-cpu { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+.np-app .np-sys-cpu-r { display: flex; align-items: flex-end; gap: 10px; min-width: 0; }
+.np-app .np-spark-box { flex: 1; min-width: 0; padding-top: 12px; }
+.np-app .np-spark-box .np-spark { height: 38px; }
+.np-app .np-cores-box { display: flex; flex-direction: column; align-items: center; flex: none; cursor: help; }
+.np-app .np-cores { display: flex; gap: 3px; height: 38px; align-items: flex-end; }
+.np-app .np-core { position: relative; width: 6px; height: 100%; border-radius: 3px; background: var(--np-surface-3); overflow: hidden; }
+.np-app .np-core-fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; background: var(--np-chart-5); }
+
+.np-app .np-sys-mem { display: flex; flex-direction: column; gap: 7px; }
+.np-app .np-mem-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.np-app .np-mem-avail { font-size: var(--np-fs-lg); font-weight: 680; }
+.np-app .np-mem-of { font-size: var(--np-fs-sm); color: var(--np-text-3); }
+.np-app .np-seg { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--np-surface-3); gap: 2px; }
+/* width animates only for a visible change (the view sets .np-seg-move):
+   a width transition lays out every frame, and memory moves by fractions
+   of a percent on most polls */
+.np-app .np-seg-part { height: 100%; min-width: 0; }
+.np-app .np-seg-move .np-seg-part { transition: width .7s cubic-bezier(.2, .7, .2, 1); }
+.np-app .np-seg-used { background: var(--np-mem); border-radius: 6px 2px 2px 6px; }
+.np-app .np-seg-cache {
+	background:
+		repeating-linear-gradient(135deg, color-mix(in oklab, var(--np-mem) 42%, transparent) 0 3px, color-mix(in oklab, var(--np-mem) 24%, transparent) 3px 6px);
+	border-radius: 2px;
+}
+.np-app .np-seg-free { background: transparent; }
+.np-app .np-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--np-fs-sm); color: var(--np-text-2); }
+.np-app .np-legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.np-app .np-legend-item b { font-weight: 650; color: var(--np-text); }
+.np-app .np-key { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.np-app .np-key.np-seg-free { background: var(--np-surface-3); box-shadow: inset 0 0 0 1px var(--np-line-2); }
+.np-app .np-swap { display: flex; align-items: center; gap: 8px; font-size: var(--np-fs-sm); }
+.np-app .np-swap:empty { display: none; }
+.np-app .np-thin { flex: 1; height: 4px; border-radius: 2px; background: var(--np-surface-3); overflow: hidden; }
+.np-app .np-thin-fill { display: block; height: 100%; background: var(--np-mem); }
+
+.np-app .np-sys-store { display: flex; flex-direction: column; gap: 8px; }
+.np-app .np-storage { display: flex; flex-direction: column; gap: 8px; }
+.np-app .np-mount-top { display: flex; justify-content: space-between; gap: 8px; font-size: var(--np-fs-sm); margin-bottom: 4px; }
+.np-app .np-bar { height: 6px; border-radius: 3px; background: var(--np-surface-3); overflow: hidden; }
+.np-app .np-bar-fill { display: block; height: 100%; border-radius: 3px; background: var(--np-mem); }
+.np-app .np-bg-warn { background: var(--np-warn); }
+.np-app .np-bg-err { background: var(--np-err); }
+.np-app .np-fw { display: flex; flex-direction: column; gap: 1px; margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--np-line); font-size: var(--np-fs-sm); color: var(--np-text-2); }
+
+/* ------------------------------------------------------------- 7. chart */
+
+/* small multiples: one row per link, each with its own labelled scale,
+   a shared time axis and one crosshair across all rows */
+.np-app .np-chart { display: flex; flex-direction: column; --np-mh: 136px; --np-mg: 16px; }
+.np-app .np-chart .np-tile-title { flex-wrap: wrap; row-gap: 0; }
+.np-app .np-chart-sub { font-size: var(--np-fs-sm); font-weight: 500; color: var(--np-text-3); }
+.np-app .np-chart-sub::before { content: "·"; margin: 0 6px 0 0; }
+.np-app .np-lg-key { width: 12px; height: 3px; border-radius: 2px; background: var(--np-sc); flex: none; }
+/* one colour per direction in every row (series, gradients, dots, keys) */
+.np-app .np-chart, .np-app .np-chart .np-k-dn { --np-sc: var(--np-dir-dn); }
+.np-app .np-chart .np-dir-up, .np-app .np-chart .np-k-up { --np-sc: var(--np-dir-up); }
+.np-app .np-arr { font-weight: 700; }
+.np-app .np-arr-dn { color: color-mix(in oklab, var(--np-dir-dn) 70%, var(--np-text)); }
+.np-app .np-arr-up { color: color-mix(in oklab, var(--np-dir-up) 70%, var(--np-text)); }
+.np-app .np-dir-legend { font-size: var(--np-fs-micro); gap: 4px 12px; }
+
+.np-app .np-mult-wrap { position: relative; flex: 1; display: flex; flex-direction: column; min-height: 300px; border-radius: var(--np-r-sm); outline-offset: 4px; }
+.np-app .np-mults { flex: 1; display: grid; grid-auto-rows: minmax(100px, 1fr); }
+.np-app .np-mult {
+	display: grid; grid-template-columns: var(--np-mh) minmax(0, 1fr); column-gap: var(--np-mg);
+	padding: 8px 0; border-top: 1px solid var(--np-line); min-height: 0;
+}
+.np-app .np-mult:first-child { border-top: 0; padding-top: 2px; }
+.np-app .np-mult-head { display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; }
+.np-app .np-mult-name { font-size: var(--np-fs-micro); font-weight: 600; color: var(--np-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-app .np-mult-now { display: flex; align-items: center; gap: 6px; font-size: var(--np-fs-lg); font-weight: 700; letter-spacing: -.01em; line-height: 1.25; white-space: nowrap; }
+.np-app .np-mult-now b { font-weight: inherit; }
+.np-app .np-mult-now-up { font-size: var(--np-fs-base); font-weight: 650; line-height: 1.3; color: var(--np-text-2); }
+.np-app .np-mult-stats { display: flex; flex-wrap: wrap; gap: 0 8px; font-size: var(--np-fs-micro); color: var(--np-text-3); white-space: nowrap; }
+.np-app .np-mult-stats b { font-weight: 600; color: var(--np-text-2); }
+.np-app .np-mult-plot { position: relative; min-height: 72px; margin: 12px 0; --np-sc: inherit; }
+.np-app .np-mult-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.np-app .np-chart-grid { fill: none; stroke: var(--np-chart-grid); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.np-app .np-chart-vgrid { fill: none; stroke: var(--np-chart-grid); stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+.np-app .np-series-line { fill: none; stroke: var(--np-sc); stroke-width: 1.75; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.np-app .np-series-area { stroke: none; }
+.np-app .np-chart-mid { fill: none; stroke: color-mix(in oklab, var(--np-chart-axis) 55%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+/* scale labels sit just above their line (top set per style), or just
+   below it */
+.np-app .np-mult-max {
+	position: absolute; right: 0; top: 0; transform: translateY(calc(-100% - 3px));
+	font-size: var(--np-fs-micro); line-height: 1; color: var(--np-chart-axis); white-space: nowrap; pointer-events: none;
+}
+.np-app .np-mult-max-below { transform: translateY(3px); }
+/* a stretch without samples: hatched, named when there's room */
+.np-app .np-mult-gap {
+	position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+	border-radius: 3px; pointer-events: none;
+	background: repeating-linear-gradient(135deg, var(--np-chart-grid) 0 2px, transparent 2px 6px);
+	font-size: var(--np-fs-micro); line-height: 1; color: var(--np-chart-axis); white-space: nowrap;
+}
+.np-app .np-mult-gap span { padding: 2px 4px; border-radius: 3px; background: var(--np-surface); }
+/* a band too narrow for its label shows the hatching alone */
+.np-app .np-mult-gap { container-type: inline-size; }
+@container (max-width: 60px) { .np-app .np-mult-gap span { display: none; } }
+.np-app .np-mult-dot {
+	position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; z-index: 2;
+	background: var(--np-sc); box-shadow: 0 0 0 2px var(--np-surface); pointer-events: none;
+}
+.np-app .np-mult-over { position: absolute; top: 0; bottom: 20px; left: calc(var(--np-mh) + var(--np-mg)); right: 0; pointer-events: none; z-index: 3; }
+.np-app .np-mult-x { position: relative; height: 20px; margin-left: calc(var(--np-mh) + var(--np-mg)); }
+.np-app .np-mx { position: absolute; top: 5px; font-size: var(--np-fs-micro); line-height: 1; color: var(--np-chart-axis); white-space: nowrap; transform: translateX(-50%); }
+.np-app .np-mx-0 { left: 0; transform: none; }
+.np-app .np-mx-1 { right: 0; transform: none; }
+.np-app .np-mult-wrap { cursor: crosshair; touch-action: pan-y; }
+.np-app .np-cursor { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid color-mix(in oklab, var(--np-text) 45%, transparent); pointer-events: none; }
+.np-app .np-tip {
+	position: absolute; top: 4px; z-index: 4;
+	width: max-content; min-width: 180px; padding: 8px 10px 7px; border-radius: var(--np-r);
+	background: var(--np-surface); border: 1px solid var(--np-line-2);
+	box-shadow: 0 10px 28px rgba(12, 14, 17, .16), 0 2px 6px rgba(12, 14, 17, .06);
+	font-size: var(--np-fs-sm); pointer-events: none;
+}
+.np-app .np-tip-time { display: flex; justify-content: space-between; gap: 12px; color: var(--np-text-3); font-size: var(--np-fs-micro); margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid var(--np-line); }
+.np-app .np-tip-link + .np-tip-link { margin-top: 5px; }
+.np-app .np-tip-label { color: var(--np-text-3); font-size: var(--np-fs-micro); white-space: nowrap; }
+.np-app .np-tip-row { display: grid; grid-template-columns: 12px auto minmax(0, 1fr); align-items: center; column-gap: 8px; line-height: 1.6; color: var(--np-text-2); }
+.np-app .np-tip-row b { font-weight: 700; color: var(--np-text); white-space: nowrap; text-align: right; }
+
+/* ------------------------------------------------------------ 8. radios */
+
+.np-app .np-radios { display: flex; flex-direction: column; min-width: 0; }
+.np-app .np-radio-list { flex: 1; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); min-width: 0; }
+.np-app .np-radio { display: flex; flex-direction: column; gap: 12px; --np-bc: var(--np-b60); overflow: hidden; }
+.np-app .np-radio-2g { --np-bc: var(--np-b2); }
+.np-app .np-radio-5g { --np-bc: var(--np-b5); }
+.np-app .np-radio-6g { --np-bc: var(--np-b6); }
+.np-app .np-radio::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--np-bc); opacity: .85; }
+.np-app .np-radio-off { opacity: .75; }
+.np-app .np-radio-head { display: flex; align-items: center; gap: 8px; }
+.np-app .np-radio-name { font-weight: 650; font-size: var(--np-fs-base); }
+.np-app .np-status { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: var(--np-fs-micro); font-weight: 600; color: var(--np-text-2); }
+.np-app .np-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--np-ok); }
+.np-app .np-status-warn::before { background: var(--np-warn); }
+.np-app .np-status-err::before { background: var(--np-err); }
+.np-app .np-icon-action {
+	display: inline-flex; align-items: center; justify-content: center; flex: none;
+	width: var(--np-ctl); height: var(--np-ctl); padding: 0; margin: 0; border: 0; border-radius: var(--np-r-ctl);
+	background: transparent; color: var(--np-text-3); cursor: pointer; box-shadow: none; min-width: 0;
+}
+.np-app .np-icon-action:hover { background: var(--np-surface-3); color: var(--np-text); }
+.np-app .np-radio-chan { display: flex; align-items: baseline; gap: 8px; }
+.np-app .np-radio-width { font-size: var(--np-fs-md); font-weight: 600; color: var(--np-text-2); }
+.np-app .np-spectrum { position: relative; height: 8px; border-radius: 4px; background: var(--np-surface-3); margin-bottom: 12px; }
+.np-app .np-spectrum-blk { position: absolute; top: -2px; bottom: -2px; border-radius: 3px; background: var(--np-bc); box-shadow: 0 0 0 2px var(--np-surface); }
+.np-app .np-spectrum-lo, .np-app .np-spectrum-hi { position: absolute; top: 11px; font-size: var(--np-fs-micro); color: var(--np-text-3); }
+.np-app .np-spectrum-lo { left: 0; }
+.np-app .np-spectrum-hi { right: 0; }
+.np-app .np-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.np-app .np-kv dt { font-size: var(--np-fs-micro); color: var(--np-text-3); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.np-app .np-kv dd { font-size: var(--np-fs-base); font-weight: 600; margin: 1px 0 0; }
+.np-app .np-kv dd .np-muted { font-weight: 500; font-size: var(--np-fs-sm); }
+.np-app .np-radio-live { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 10px; border-radius: var(--np-r-sm); background: var(--np-surface-2); }
+.np-app .np-radio-live .np-spark { height: 30px; }
+.np-app .np-rates { display: flex; flex-direction: column; gap: 1px; }
+.np-app .np-rate { display: inline-flex; align-items: center; gap: 4px; font-size: var(--np-fs-sm); font-weight: 650; white-space: nowrap; }
+.np-app .np-rate .np-ico { width: 12px; height: 12px; stroke-width: 2.3; color: var(--np-text-3); }
+.np-app .np-rate-up { font-weight: 500; color: var(--np-text-2); }
+.np-app .np-notes { display: flex; flex-direction: column; gap: 4px; }
+.np-app .np-note { display: flex; align-items: flex-start; gap: 6px; font-size: var(--np-fs-sm); color: var(--np-text-2); }
+.np-app .np-note .np-ico { margin-top: 2px; color: var(--np-text-3); }
+.np-app .np-note-warn .np-ico { color: var(--np-warn); }
+.np-app .np-note-err .np-ico { color: var(--np-err); }
+.np-app .np-note-info .np-ico { color: var(--np-info); }
+.np-app .np-note-muted { color: var(--np-text-3); }
+.np-app .np-radio-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--np-line); }
+.np-app .np-avs { display: inline-flex; }
+.np-app .np-avs .np-av { box-shadow: 0 0 0 2px var(--np-surface); }
+.np-app .np-avs .np-av + .np-av { margin-left: -6px; }
+
+/* ----------------------------------------------------------- 9. clients */
+
+.np-app .np-clients { padding-bottom: 8px; }
+/* a jump to a tile (the path's SSID, Wired and port nodes) stops below
+   the sticky top bar */
+.np-app .np-tile { scroll-margin-top: calc(var(--v-stick-top, 48px) + 12px); }
+.np-app .np-count { font-size: var(--np-fs-sm); color: var(--np-text-3); font-weight: 560; }
+.np-app .np-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.np-app .np-filter {
+	position: relative; display: flex; align-items: center; flex: 1 1 260px; max-width: 380px;
+	height: var(--np-ctl); padding: 0 8px 0 10px; gap: 6px;
+	border: 1px solid var(--np-line-2); border-radius: var(--np-r-ctl); background: var(--np-surface);
+	color: var(--np-text-3); cursor: text;
+}
+.np-app .np-filter:focus-within { border-color: var(--np-accent-line); box-shadow: 0 0 0 3px var(--np-accent-soft); }
+.np-app .np-filter .np-ico { width: 16px; height: 16px; }
+.np-app .np-filter .np-filter-input {
+	flex: 1; min-width: 0; width: auto; height: calc(var(--np-ctl) - 2px); padding: 0; margin: 0;
+	border: 0; background: transparent; box-shadow: none; outline: none;
+	color: var(--np-text); font: inherit; font-size: var(--np-fs-base);
+}
+.np-app .np-filter .np-filter-input::placeholder { color: var(--np-text-3); opacity: 1; }
+.np-app .np-key-hint { font: 600 var(--np-fs-micro)/1 var(--np-mono); padding: 3px 5px; border-radius: 4px; border: 1px solid var(--np-line-2); color: var(--np-text-3); background: var(--np-surface-2); }
+.np-app .np-filter:focus-within .np-key-hint { display: none; }
+.np-app .np-filter-clear {
+	display: inline-flex; align-items: center; justify-content: center; width: calc(var(--np-ctl) - 10px); height: calc(var(--np-ctl) - 10px); padding: 0; margin: 0;
+	border: 0; border-radius: var(--np-r-ctl); background: transparent; color: var(--np-text-3); cursor: pointer; box-shadow: none; min-width: 0;
+}
+.np-app .np-filter-clear:hover { background: var(--np-surface-3); color: var(--np-text); }
+.np-app .np-filter-clear .np-ico { width: 14px; height: 14px; }
+/* Wi-Fi or wired, in the tile head */
+.np-app .np-kinds { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--np-line); border-radius: 999px; background: var(--np-surface-2); }
+.np-app .np-kind {
+	display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 11px; margin: 0; min-width: 0;
+	border: 0; border-radius: 999px; background: transparent; box-shadow: none; text-transform: none;
+	color: var(--np-text-2); font-size: var(--np-fs-sm); font-weight: 600; cursor: pointer;
+}
+.np-app .np-kind:hover { color: var(--np-text); }
+.np-app .np-kind.np-kind-on { background: var(--np-surface); color: var(--np-text); box-shadow: var(--np-shadow); }
+.np-app .np-kind-n { font-size: var(--np-fs-micro); color: var(--np-text-3); }
+/* quick filters: a button at the end of the search box, a menu under it,
+   and the filter in force as a tag in the box */
+.np-app .np-filter-wrap { position: relative; display: flex; flex: 1 1 260px; max-width: 380px; min-width: 0; }
+.np-app .np-filter-wrap > .np-filter { flex: 1 1 auto; max-width: none; min-width: 0; }
+.np-app .np-filter-btn {
+	position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none;
+	width: calc(var(--np-ctl) - 10px); height: calc(var(--np-ctl) - 10px); padding: 0; margin: 0 -2px 0 0; min-width: 0;
+	border: 0; border-radius: var(--np-r-ctl); background: transparent; box-shadow: none; color: var(--np-text-3); cursor: pointer;
+}
+.np-app .np-filter-btn:hover, .np-app .np-filter-btn[aria-expanded="true"] { background: var(--np-surface-3); color: var(--np-text); }
+.np-app .np-filter-btn.np-filter-btn-on { color: var(--np-accent); }
+.np-app .np-filter-btn .np-ico { width: 16px; height: 16px; }
+.np-app .np-ftag {
+	display: inline-flex; align-items: center; gap: 4px; flex: none; max-width: 45%; height: 24px; padding: 0 6px 0 9px; margin: 0; min-width: 0;
+	border: 0; border-radius: 999px; background: var(--np-accent-soft); box-shadow: none; text-transform: none;
+	color: var(--np-text); font-size: var(--np-fs-sm); font-weight: 600; cursor: pointer;
+}
+.np-app .np-ftag span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-app .np-ftag .np-ico { width: 12px; height: 12px; flex: none; color: var(--np-text-3); }
+.np-app .np-ftag:hover .np-ico { color: var(--np-text); }
+.np-app .np-fmenu {
+	position: absolute; top: calc(100% + 6px); right: 0; z-index: 6;
+	display: flex; flex-direction: column; min-width: 210px; padding: 5px;
+	border: 1px solid var(--np-line-2); border-radius: var(--np-r); background: var(--np-surface); box-shadow: var(--np-shadow-pop);
+}
+.np-app .np-fmenu[hidden] { display: none; }
+.np-app .np-fmenu-item {
+	display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+	height: 34px; padding: 0 10px 0 8px; margin: 0; min-width: 0; width: 100%;
+	border: 0; border-radius: var(--np-r-ctl); background: transparent; box-shadow: none; text-align: left; text-transform: none;
+	color: var(--np-text); font-size: var(--np-fs-sm); font-weight: 560; cursor: pointer;
+}
+.np-app .np-fmenu-item:hover, .np-app .np-fmenu-item:focus-visible { background: var(--np-surface-2); outline: none; }
+.np-app .np-fmenu-check { display: inline-flex; color: var(--np-accent); }
+.np-app .np-fmenu-check .np-ico { width: 14px; height: 14px; }
+.np-app .np-fmenu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-app .np-fmenu-n { color: var(--np-text-3); font-size: var(--np-fs-micro); font-weight: 600; }
+.np-app .np-fmenu-warn .np-fmenu-n { color: var(--np-warn); }
+.np-app .np-fchip {
+	display: inline-flex; align-items: center; gap: 6px; height: var(--np-ctl); padding: 0 12px; margin: 0;
+	border: 1px solid var(--np-line); border-radius: 999px; background: var(--np-surface);
+	color: var(--np-text-2); font-size: var(--np-fs-sm); font-weight: 600; cursor: pointer; box-shadow: none; min-width: 0; text-transform: none;
+}
+.np-app .np-fchip:hover { border-color: var(--np-line-2); color: var(--np-text); background: var(--np-surface-2); }
+
+.np-app .np-table-wrap { overflow-x: auto; margin: 0 -18px; padding: 0 18px; }
+.np-app .np-ctable { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; min-width: 800px; }
+.np-app .np-ctable th {
+	position: sticky; top: 0; z-index: 1;
+	padding: 0 10px; height: var(--np-ctl); text-align: left; white-space: nowrap; letter-spacing: normal; text-transform: none;
+	background: var(--np-surface); border-bottom: 1px solid var(--np-line);
+	font-weight: 400;
+}
+.np-app .np-sort {
+	display: inline-flex; align-items: center; gap: 4px; height: var(--np-ctl); padding: 0 4px; margin: 0 -4px;
+	border: 0; border-radius: var(--np-r-ctl); background: transparent; box-shadow: none; min-width: 0;
+	color: var(--np-text-3); font-size: var(--np-fs-micro); font-weight: 650; letter-spacing: .05em; text-transform: uppercase; cursor: pointer;
+}
+.np-app .np-sort:hover { color: var(--np-text); background: var(--np-surface-2); }
+.np-app .np-sort-on { color: var(--np-text); }
+.np-app .np-sort-ind { font-size: var(--np-fs-micro); width: 8px; }
+.np-app .np-ctable td {
+	height: auto; line-height: 1.4; overflow-wrap: normal; text-align: left;
+	padding: 9px 8px; vertical-align: middle;
+	border-bottom: 1px solid var(--np-line);
+}
+.np-app .np-ctable tr:last-child td { border-bottom: 0; }
+.np-app .np-row { cursor: pointer; transition: background .15s; }
+.np-app .np-row:hover td { background: var(--np-surface-2); }
+.np-app .np-row:focus-visible { outline: none; }
+.np-app .np-row:focus-visible td { background: var(--np-accent-soft); }
+.np-app .np-row-sel td { background: var(--np-accent-soft); }
+.np-app .np-row-sel td:first-child { box-shadow: inset 3px 0 0 var(--np-accent-line); }
+.np-app .np-row-enter { animation: np-in .45s ease both; }
+.np-app .np-row-gone td { color: var(--np-text-3); }
+.np-app .np-row-gone .np-who-label { color: var(--np-text-3); text-decoration: line-through; text-decoration-color: var(--np-line-2); }
+@keyframes np-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.np-app .np-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.np-app .np-who-text { min-width: 0; }
+/* names get two lines before they are cut; the full name is the title */
+.np-app .np-who-label {
+	font-weight: 640; font-size: var(--np-fs-base); line-height: 1.3; max-width: 280px; overflow-wrap: anywhere;
+	display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.np-app .np-who-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; margin-top: 3px; color: var(--np-text-3); font-size: var(--np-fs-micro); }
+.np-app .np-who-id { white-space: nowrap; }
+.np-app .np-td-name { min-width: 250px; }
+.np-app .np-net { display: flex; flex-direction: column; gap: 3px; }
+.np-app .np-net-ssid { font-weight: 560; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.np-app .np-net-badges { display: flex; align-items: center; gap: 6px; }
+.np-app .np-phy { display: flex; align-items: center; gap: 4px; font-size: var(--np-fs-sm); white-space: nowrap; }
+.np-app .np-phy b { font-weight: 620; }
+.np-app .np-phy .np-ico { color: var(--np-text-3); stroke-width: 2.2; width: 12px; height: 12px; }
+.np-app .np-phy-up { color: var(--np-text-3); font-size: var(--np-fs-micro); padding-left: 16px; }
+.np-app .np-live-cell { display: grid; grid-template-columns: auto; gap: 3px; min-width: 96px; }
+.np-app .np-live-total { font-weight: 650; }
+.np-app .np-mini { display: block; height: 4px; border-radius: 2px; background: var(--np-surface-3); overflow: hidden; }
+.np-app .np-mini-fill { display: block; height: 100%; background: var(--np-info); border-radius: 2px; }
+.np-app .np-live-split { font-size: var(--np-fs-micro); color: var(--np-text-3); white-space: nowrap; }
+.np-app .np-exp { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.np-app .np-score {
+	flex: none; display: inline-flex; align-items: center; justify-content: center;
+	width: 32px; height: 26px; border-radius: 7px; font-size: var(--np-fs-sm); font-weight: 700;
+	--np-xc: var(--np-ok); background: color-mix(in oklab, var(--np-xc) 15%, transparent); color: color-mix(in oklab, var(--np-xc) 85%, var(--np-text));
+}
+.np-app .np-score-warn { --np-xc: var(--np-warn); }
+.np-app .np-score-err { --np-xc: var(--np-err); }
+.np-app .np-exp-text { display: flex; flex-direction: column; min-width: 0; }
+.np-app .np-exp-text b { font-size: var(--np-fs-sm); font-weight: 650; }
+.np-app .np-exp-text span {
+	font-size: var(--np-fs-micro); line-height: 1.35; color: var(--np-text-3); max-width: 170px;
+	display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.np-app .np-td-time, .np-app .np-td-seen { white-space: nowrap; color: var(--np-text-2); }
+.np-app .np-td-link { white-space: nowrap; }
+.np-app .np-td-link .np-phy-up { padding-left: 0; }
+/* the Graphite shell tags numeric-looking cells with .np-num (monospace);
+   the dashboard sets its own type */
+.np-app td.np-num { font-family: inherit; font-size: inherit; letter-spacing: inherit; }
+
+/* ---------------------------------------------------- 10. talkers, SSIDs */
+
+.np-app .np-talkers { display: flex; flex-direction: column; gap: 2px; position: relative; }
+/* the rows a short list leaves free keep their room (one line per name,
+   so every row is as tall); the empty note sits over them */
+.np-app .np-talk-slot { visibility: hidden; cursor: default; }
+.np-app .np-talkers > .np-empty-inline { position: absolute; top: 0; left: 0; right: 0; margin: 0; }
+.np-app .np-talk-row, .np-app .np-ssid, .np-app .np-dlist-row {
+	display: flex; align-items: center; gap: 10px; width: 100%;
+	padding: 8px;
+	border: 0; border-radius: var(--np-r-sm); background: transparent; box-shadow: none;
+	text-align: left; cursor: pointer; color: var(--np-text); height: auto; min-width: 0; text-transform: none; font-weight: 400;
+}
+.np-app .np-talk-row:hover, .np-app .np-ssid:hover, .np-app .np-dlist-row:hover { background: var(--np-surface-2); }
+.np-app .np-talk-rank { width: 14px; font-size: var(--np-fs-sm); color: var(--np-text-3); font-weight: 650; text-align: center; flex: none; }
+.np-app .np-talk-main { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.np-app .np-talk-top { display: flex; justify-content: space-between; gap: 10px; }
+.np-app .np-talk-name { font-weight: 600; line-height: 1.3; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-app .np-talk-share { font-size: var(--np-fs-sm); font-weight: 650; color: var(--np-text-2); white-space: nowrap; }
+.np-app .np-talk-sub b { color: var(--np-text); font-weight: 650; }
+.np-app .np-talk-bar { height: 5px; border-radius: 3px; background: var(--np-surface-3); overflow: hidden; }
+.np-app .np-talk-fill { display: block; height: 100%; border-radius: 3px; background: var(--np-info); }
+.np-app .np-talk-sub { display: flex; gap: 8px; align-items: baseline; font-size: var(--np-fs-micro); color: var(--np-text-3); white-space: nowrap; overflow: hidden; }
+
+.np-app .np-ssids { display: flex; flex-direction: column; gap: 2px; }
+.np-app .np-ssid-ico { flex: none; width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--np-surface-3); color: var(--np-text-2); }
+.np-app .np-ssid-ico .np-ico { width: 16px; height: 16px; }
+.np-app .np-ssid-ico.np-t-warn { background: var(--np-warn-soft); color: var(--np-warn); }
+.np-app .np-ssid-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.np-app .np-ssid-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.np-app .np-ssid-name { font-weight: 640; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-app .np-ssid-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.np-app .np-sec { font-size: var(--np-fs-micro); font-weight: 600; color: var(--np-text-2); }
+.np-app .np-ssid-side { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+.np-app .np-ssid-n { font-size: var(--np-fs-lg); font-weight: 700; line-height: 1.1; }
+.np-app .np-ssid-idle .np-ssid-n { color: var(--np-text-3); }
+
+/* ------------------------------------------------------------ 11. drawer */
+
+.np-app .np-drawer-back {
+	position: fixed; inset: 0; z-index: 880;
+	background: var(--np-scrim); opacity: 0; transition: opacity .25s ease;
+}
+.np-app .np-drawer {
+	position: fixed; z-index: 890; top: 0; right: 0; bottom: 0;
+	width: min(460px, 100vw);
+	display: flex; flex-direction: column;
+	background: var(--np-surface); color: var(--np-text);
+	border-left: 1px solid var(--np-line);
+	box-shadow: var(--np-sheet-shadow);
+	transform: translateX(104%);
+	transition: transform .28s cubic-bezier(.2, .8, .2, 1);
+	outline: none;
+}
+.np-app.np-drawer-open .np-drawer { transform: none; }
+.np-app.np-drawer-open .np-drawer-back { opacity: 1; }
+.np-app .np-drawer-grip { display: none; }
+.np-app .np-drawer-head {
+	display: flex; align-items: center; gap: 12px;
+	padding: 16px 16px 14px 20px; border-bottom: 1px solid var(--np-line);
+}
+.np-app .np-drawer-title { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.np-app .np-drawer-title .np-av { width: 44px; height: 44px; border-radius: 12px; }
+.np-app .np-drawer-title .np-av .np-ico { width: 24px; height: 24px; }
+.np-app .np-drawer-ico { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: var(--np-surface-3); color: var(--np-text-2); flex: none; }
+.np-app .np-drawer-ico .np-ico { width: 22px; height: 22px; }
+.np-app .np-drawer-titles { min-width: 0; }
+.np-app .np-drawer-name { font-size: var(--np-fs-lg); font-weight: 680; letter-spacing: -.01em; line-height: 1.25; overflow-wrap: anywhere; }
+.np-app .np-drawer-sub { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; color: var(--np-text-3); font-size: var(--np-fs-sm); margin-top: 3px; }
+.np-app .np-drawer-close {
+	display: inline-flex; align-items: center; justify-content: center; flex: none;
+	width: var(--np-ctl); height: var(--np-ctl); padding: 0; margin: 0; border: 0; border-radius: var(--np-r-ctl);
+	background: transparent; color: var(--np-text-2); cursor: pointer; box-shadow: none; min-width: 0;
+}
+.np-app .np-drawer-close:hover { background: var(--np-surface-3); color: var(--np-text); }
+.np-app .np-drawer-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 14px 20px 28px; display: flex; flex-direction: column; gap: 16px; }
+.np-app .np-dactions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.np-app .np-dactions:has(> .np-link:only-child) { justify-content: flex-end; }
+.np-app .np-rename-slot:empty { display: none; }
+.np-app .np-banner { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--np-r-sm); font-size: var(--np-fs-sm); }
+.np-app .np-banner-muted { background: var(--np-surface-3); color: var(--np-text-2); }
+
+.np-app .np-expcard {
+	display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: var(--np-r);
+	--np-xc: var(--np-ok);
+	background: color-mix(in oklab, var(--np-xc) 8%, var(--np-surface));
+	border: 1px solid color-mix(in oklab, var(--np-xc) 25%, var(--np-line));
+}
+.np-app .np-expcard-warn { --np-xc: var(--np-warn); }
+.np-app .np-expcard-err { --np-xc: var(--np-err); }
+.np-app .np-ring { position: relative; width: 58px; height: 58px; flex: none; }
+.np-app .np-ring-svg { width: 58px; height: 58px; transform: rotate(-90deg); }
+.np-app .np-ring-track { fill: none; stroke: color-mix(in oklab, var(--np-xc) 18%, transparent); stroke-width: 3.5; }
+.np-app .np-ring-arc { fill: none; stroke: var(--np-xc); stroke-width: 3.5; stroke-linecap: round; }
+.np-app .np-ring-n { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: var(--np-fs-lg); font-weight: 720; }
+.np-app .np-expcard-grade { font-weight: 680; font-size: var(--np-fs-md); }
+.np-app .np-expcard-reason { font-size: var(--np-fs-sm); color: var(--np-text-2); margin-top: 1px; }
+.np-app .np-factors { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; font-size: var(--np-fs-micro); color: var(--np-text-3); }
+.np-app .np-factors li { display: flex; gap: 6px; }
+.np-app .np-factors li .np-tn { width: 26px; flex: none; color: var(--np-text-2); font-weight: 650; }
+
+.np-app .np-dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.np-app .np-dcard { display: flex; flex-direction: column; gap: 1px; padding: 12px; border-radius: var(--np-r); background: var(--np-surface-2); border: 1px solid var(--np-line); min-width: 0; }
+.np-app .np-dcard-label { font-size: var(--np-fs-micro); font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--np-text-3); }
+.np-app .np-dcard-value { font-size: var(--np-fs-xl); font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+.np-app .np-dcard-sub { font-size: var(--np-fs-micro); line-height: 1.35; color: var(--np-text-3); min-height: 16px; }
+.np-app .np-dcard .np-sk { margin-top: auto; padding-top: 18px; }
+.np-app .np-dcard .np-sk-max { top: 16px; }
+.np-app .np-dcard .np-spark { height: 36px; }
+.np-app .np-dspark { padding-top: 14px; }
+.np-app .np-dspark .np-spark { height: 48px; }
+.np-app .np-dsec-title { font-size: var(--np-fs-micro); font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--np-text-3); margin: 0 0 6px; padding: 0; border: 0; }
+.np-app .np-kvs { display: flex; flex-direction: column; }
+.np-app .np-kvs .np-kv { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--np-line); }
+.np-app .np-kvs .np-kv:last-child { border-bottom: 0; }
+.np-app .np-kvs .np-kv dt { font-size: var(--np-fs-sm); text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--np-text-3); }
+.np-app .np-kvs .np-kv dd { font-size: var(--np-fs-base); font-weight: 520; margin: 0; white-space: pre-line; overflow-wrap: anywhere; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.np-app .np-kvs .np-kv dd small { font-size: var(--np-fs-micro); color: var(--np-text-3); font-weight: 400; }
+.np-app .np-dlist { display: flex; flex-direction: column; }
+.np-app .np-dlist-name { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.np-app .np-rename { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: var(--np-r); background: var(--np-surface-2); border: 1px solid var(--np-line); }
+.np-app .np-rename-label { display: flex; flex-direction: column; gap: 5px; font-size: var(--np-fs-sm); font-weight: 600; color: var(--np-text-2); }
+.np-app .np-rename .np-rename-input {
+	height: var(--np-ctl); width: 100%; padding: 0 10px; margin: 0;
+	border: 1px solid var(--np-line-2); border-radius: var(--np-r-ctl); background: var(--np-surface);
+	color: var(--np-text); font: inherit; font-size: var(--np-fs-md); font-weight: 400; box-shadow: none;   /* the label around it is semibold */
+}
+.np-app .np-rename .np-rename-input:focus { outline: none; border-color: var(--np-accent-line); box-shadow: 0 0 0 3px var(--np-accent-soft); }
+.np-app .np-icon-picks { display: flex; flex-wrap: wrap; gap: 4px; }
+.np-app .np-icon-pick {
+	display: inline-flex; align-items: center; justify-content: center; width: var(--np-ctl); height: var(--np-ctl); padding: 0; margin: 0;
+	border: 1px solid var(--np-line); border-radius: var(--np-r-ctl); background: var(--np-surface); color: var(--np-text-2);
+	cursor: pointer; box-shadow: none; min-width: 0;
+}
+.np-app .np-icon-pick:hover { border-color: var(--np-line-2); color: var(--np-text); }
+.np-app .np-icon-pick[aria-pressed="true"] { background: var(--np-accent); border-color: var(--np-accent); color: var(--np-accent-ink); }
+.np-app .np-rename-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.np-app .np-rename-actions .np-hint { flex-basis: 100%; font-size: var(--np-fs-micro); }
+.np-app .np-form-err { color: var(--np-err); font-size: var(--np-fs-sm); }
+
+/* ------------------------------------------- 11b. firewall overview */
+/* view/netpath/firewall.js: warnings, then tiles for what is open from
+   the internet, the zones and what is switched off */
+/* no internet-facing zone: the page cannot tell, neither green nor a warning */
+.np-app .np-orb-unknown { --np-oc: var(--np-text-3); }
+.np-app .np-fg-warns { display: grid; gap: 10px; margin-bottom: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+/* a warning's title is a sentence, not the dashboard's small caps label */
+.np-app .np-fg-warns .np-chip-title { text-transform: none; letter-spacing: 0; font-size: var(--np-fs-base); font-weight: 650; color: var(--np-text); }
+.np-app .np-fg-warns .np-chip-reason { margin-top: 2px; }
+.np-app .np-fg-grid { display: grid; gap: 14px; align-items: start; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); }
+.np-app .np-fg-group {
+	margin: 2px 0 4px; color: var(--np-text-3);
+	font-size: var(--np-fs-micro); font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+}
+.np-app .np-fg-rows + .np-fg-group { margin-top: 14px; }
+.np-app .np-fg-rows { display: flex; flex-direction: column; }
+.np-app .np-fg-row {
+	display: flex; align-items: center; gap: 12px;
+	min-height: var(--np-ctl); padding: 8px 10px; margin: 0 -10px;
+	border-radius: var(--np-r-sm); color: var(--np-text); text-decoration: none;
+}
+.np-app .np-fg-row + .np-fg-row { box-shadow: inset 0 1px 0 var(--np-line); }
+.np-app .np-fg-row:hover { background: var(--np-surface-2); text-decoration: none; }
+.np-app .np-fg-row-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.np-app .np-fg-row-name { font-size: var(--np-fs-base); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-app .np-fg-row-sub { color: var(--np-text-3); font-size: var(--np-fs-sm); }
+.np-app .np-fg-anywhere { color: var(--np-text-2); }
+.np-app .np-fg-to { flex: none; display: inline-flex; align-items: center; gap: 6px; max-width: 45%; color: var(--np-text-2); font-size: var(--np-fs-sm); }
+.np-app .np-fg-to > .np-mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-app .np-fg-to .np-ico, .np-app .np-fg-zone-to > .np-ico { flex: none; width: 15px; height: 15px; color: var(--np-text-3); }
+.np-app .np-fg-std { margin-top: 12px; }
+.np-app .np-fg-std > summary { cursor: pointer; padding: 4px 0; color: var(--np-text-2); font-size: var(--np-fs-sm); }
+.np-app .np-fg-std > .np-hint { margin: 2px 0 6px; }
+.np-app .np-fg-zones { display: flex; flex-direction: column; }
+.np-app .np-fg-zone { padding: 10px 0; }
+.np-app .np-fg-zone:first-child { padding-top: 0; }
+.np-app .np-fg-zone + .np-fg-zone { border-top: 1px solid var(--np-line); }
+.np-app .np-fg-zone-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.np-app .np-fg-zone-name { font-size: var(--np-fs-md); font-weight: 650; }
+.np-app .np-fg-tag {
+	padding: 1px 7px; border-radius: 999px;
+	background: var(--np-info-soft); color: color-mix(in oklab, var(--np-info) 80%, var(--np-text));
+	font-size: var(--np-fs-micro); font-weight: 600;
+}
+.np-app .np-fg-zone-in { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--np-text-3); font-size: var(--np-fs-sm); }
+.np-app .np-fg-pol { padding: 1px 8px; border-radius: var(--np-r-sm); font-size: var(--np-fs-sm); font-weight: 600; }
+.np-app .np-fg-pol.is-accept { background: var(--np-ok-soft); color: color-mix(in oklab, var(--np-ok) 72%, var(--np-text)); }
+.np-app .np-fg-pol.is-stop { background: var(--np-err-soft); color: color-mix(in oklab, var(--np-err) 80%, var(--np-text)); }
+.np-app .np-fg-pol.is-risk { background: var(--np-warn-soft); color: color-mix(in oklab, var(--np-warn) 65%, var(--np-text)); box-shadow: inset 0 0 0 1px var(--np-warn); }
+.np-app .np-fg-zone-to { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.np-app .np-fg-dests { display: flex; flex-wrap: wrap; gap: 6px; }
+.np-app .np-fg-dest { padding: 1px 8px; border: 1px solid var(--np-line-2); border-radius: var(--np-r-sm); font-size: var(--np-fs-sm); font-weight: 600; }
+.np-app .np-fg-dest.is-risk { border-color: var(--np-warn); background: var(--np-warn-soft); }
+.np-app .np-fg-nets { margin-top: 4px; }
+.np-app .np-fg-note {
+	display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 8px 10px;
+	border-radius: var(--np-r-sm); background: var(--np-info-soft); color: var(--np-text-2);
+	font-size: var(--np-fs-sm); text-decoration: none;
+}
+.np-app a.np-fg-note:hover { color: var(--np-text); text-decoration: none; }
+.np-app .np-fg-note > .np-ico { flex: none; width: 15px; height: 15px; margin-top: 1px; color: var(--np-info); }
+.np-app .np-fg-foot { margin: 12px 0 0; }
+
+/* ------------------------------------------------ 12. small screens, motion */
+
+@container vt (max-width: 699px) {
+	.np-app .np-tile { padding: 14px 14px 16px; }
+	.np-app .np-filter { max-width: none; flex-basis: 100%; }
+	.np-app .np-key-hint { display: none; }
+	.np-app .np-filter-wrap { max-width: none; flex-basis: 100%; }
+	.np-app .np-head { gap: 10px; }
+	.np-app .np-headline { font-size: var(--np-fs-lg); }
+	.np-app .np-orb { width: 32px; height: 32px; }
+	/* phones: a live connection is just the pulsing dot; paused or
+	   reconnecting still says so in words */
+	.np-app .np-live-ok { padding: 0 11px; }
+	.np-app .np-live-ok .np-live-text { display: none; }
+	/* "Paused while hidden" and the like get a row of their own under
+	   the headline instead of being cut (the orb is 32 px + the 10 px gap) */
+	.np-app .np-head { flex-wrap: wrap; row-gap: 8px; }
+	.np-app .np-head-text { flex-basis: 160px; }
+	.np-app .np-livepill:not(.np-live-ok) { order: 1; margin-left: 42px; min-width: 0; max-width: calc(100% - 42px); }
+	.np-app .np-livepill .np-live-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+	.np-app .np-chart .np-tile-extra { flex-basis: 100%; justify-content: space-between; }
+	.np-app .np-health { grid-template-columns: 1fr 1fr; gap: 8px; }
+	.np-app .np-chip { padding: 9px 10px; gap: 8px; }
+	.np-app .np-chip-ico { width: 22px; height: 22px; }
+	.np-app .np-chip-reason { -webkit-line-clamp: 2; font-size: var(--np-fs-micro); }
+	.np-app .np-chart { --np-mh: 108px; --np-mg: 12px; }
+	.np-app .np-mult-now { font-size: var(--np-fs-md); }
+	.np-app .np-mx-odd { display: none; }
+	.np-app .np-tip { min-width: 160px; }
+}
+
+/* clients as cards when the tile is too narrow for the table: one
+   column on phones, a two-up grid on tablets */
+.np-app .np-clients { container: vtcl vtcell / inline-size; }
+@container vtcl (max-width: 919px) {
+	.np-app .np-table-wrap { margin: 0; padding: 0; overflow: visible; }
+	.np-app .np-ctable { min-width: 0; }
+	.np-app .np-ctable thead { display: none; }
+	.np-app .np-ctable { display: block; }
+	.np-app .np-ctable tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+	.np-app .np-ctable tr.np-row {
+		display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; align-content: start;
+		padding: 11px 12px; border: 1px solid var(--np-line); border-radius: var(--np-r);
+		background: var(--np-surface);
+	}
+	.np-app .np-ctable td { display: block; padding: 0; border: 0; background: transparent !important; }
+	.np-app .np-row:hover { background: var(--np-surface-2); }
+	.np-app .np-ctable tr.np-row-sel { background: var(--np-accent-soft); border-color: var(--np-accent-line); }
+	.np-app .np-ctable td.np-td-name { grid-column: 1; grid-row: 1; min-width: 0; box-shadow: none !important; }
+	.np-app .np-ctable td.np-td-signal, .np-app .np-ctable td.np-td-link { grid-column: 2; grid-row: 1; justify-self: end; align-self: start; padding-top: 2px; text-align: right; }
+	.np-app .np-ctable td.np-td-net { grid-column: 1; grid-row: 2; padding-left: 44px; }
+	.np-app .np-net { flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap; }
+	.np-app .np-ctable td.np-td-live { grid-column: 2; grid-row: 2; justify-self: end; text-align: right; }
+	.np-app .np-live-cell { min-width: 0; }
+	.np-app .np-live-cell .np-mini, .np-app .np-live-split { display: none; }
+	.np-app .np-ctable td.np-td-exp, .np-app .np-ctable td.np-td-seen { grid-column: 1 / -1; grid-row: 3; padding-left: 44px; }
+	.np-app .np-ctable td.np-td-seen { font-size: var(--np-fs-sm); color: var(--np-text-3); }
+	.np-app .np-exp-text span { max-width: none; -webkit-line-clamp: 1; }
+	.np-app .np-exp { gap: 8px; }
+	.np-app .np-exp-text { flex-direction: row; align-items: baseline; gap: 6px; min-width: 0; }
+	.np-app .np-exp-text b { flex: none; }
+	.np-app .np-score { width: 28px; height: 22px; font-size: var(--np-fs-sm); }
+	.np-app .np-td-name { min-width: 0; }
+	.np-app .np-ctable td.np-td-rate, .np-app .np-ctable td.np-td-time { display: none; }
+	.np-app .np-who-label { max-width: 100%; }
+	.np-app .np-net-ssid { font-size: var(--np-fs-base); max-width: none; }
+}
+
+@media (max-width: 640px) {
+	.np-app .np-drawer {
+		top: auto; left: 0; right: 0; bottom: 0; width: auto;
+		max-height: 88vh; max-height: 88dvh; height: 88vh; height: 88dvh;
+		border-left: 0; border-top: 1px solid var(--np-line);
+		border-radius: 18px 18px 0 0;
+		transform: translateY(104%);
+		box-shadow: 0 -18px 48px rgba(12, 14, 17, .22);
+	}
+	.np-app .np-drawer-grip { display: block; width: 38px; height: 4px; border-radius: 2px; background: var(--np-line-2); margin: 8px auto 0; flex: none; }
+	.np-app .np-drawer-head { padding: 10px 12px 12px 16px; }
+	.np-app .np-drawer-body { padding: 12px 16px calc(24px + env(safe-area-inset-bottom)); }
+	.np-app .np-kvs .np-kv { grid-template-columns: 112px minmax(0, 1fr); }
+}
+
+/* touch: 16px text in fields (iOS zooms into anything smaller) */
+@media (pointer: coarse) {
+	.np-app .np-filter .np-filter-input, .np-app .np-rename .np-rename-input { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.np-app *, .np-app *::before, .np-app *::after { animation: none !important; transition: none !important; }
+	.np-app .np-flow-on { opacity: .8; }
+	.np-app .np-flow-3.np-flow-on { stroke-width: 3; }
+	.np-app .np-flows { display: none; }
+}

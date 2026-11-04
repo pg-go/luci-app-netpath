@@ -1,0 +1,46 @@
+{
+	"luci-app-netpath": {
+		"description": "NetPath dashboard: read-only status of the device, uplink, radios and stations (wireless configuration without keys, through luci.netpath wireless), its temperature sensors (luci.netpath thermal), the wired hosts its bridges have learned (luci.netpath wired: MAC, port and when last heard, and which switch ports a port's VLAN has) and the link state of those switch ports (luci getSwconfigPortState)",
+		"read": {
+			"file": {
+				"/proc/stat": [ "read" ]
+			},
+			"ubus": {
+				"file": [ "read" ],
+				"system": [ "board", "info" ],
+				"network.interface": [ "dump" ],
+				"network.device": [ "status" ],
+				"luci-rpc": [ "getHostHints" ],
+				"luci": [ "getSwconfigPortState" ],
+				"luci.netpath": [ "thermal", "wired", "wireless" ],
+				"iwinfo": [ "assoclist", "info" ],
+				"hostapd.*": [ "get_clients", "get_status" ],
+				"umdns": [ "hosts" ],
+				"uci": [ "get" ]
+			},
+			"uci": [ "netpath" ]
+		}
+	},
+	"luci-app-netpath-rdns": {
+		"description": "NetPath dashboard: client names from reverse DNS (lets the holder make the device send DNS PTR queries to any DNS server and port it names)",
+		"read": {
+			"ubus": {
+				"network.rrdns": [ "lookup" ]
+			}
+		}
+	},
+	"luci-app-netpath-names": {
+		"description": "NetPath dashboard: name stations (luci.netpath set_alias: validated names in /etc/config/netpath only, at most 512)",
+		"read": {
+			"ubus": {
+				"uci": [ "get" ]
+			},
+			"uci": [ "netpath" ]
+		},
+		"write": {
+			"ubus": {
+				"luci.netpath": [ "set_alias" ]
+			}
+		}
+	}
+}

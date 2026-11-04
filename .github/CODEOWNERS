@@ -1,0 +1,5 @@
+# Changes to these paths always request the maintainer's review.
+/.github/                                  @pg-go
+/security-tests/                           @pg-go
+/dev/build/                                @pg-go
+/luci-app-netpath/root/usr/share/rpcd/     @pg-go
