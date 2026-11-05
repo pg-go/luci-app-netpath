@@ -46,6 +46,11 @@ var callWired = rpc.declare({ object: 'luci.netpath', method: 'wired', expect: {
    read as every port down */
 var callSwitchPorts = rpc.declare({ object: 'luci', method: 'getSwconfigPortState', params: [ 'switch' ], expect: { '': {} }, reject: true });
 var callHints = rpc.declare({ object: 'luci-rpc', method: 'getHostHints', expect: { '': {} } });
+/* Per-client rates by address, where the firmware serves them
+   (conntrack, as on vendor firmware whose wireless driver reports no
+   station bytes): a missing object is not an error, it just means
+   this source is not on this system, so the call is resolved to {} */
+var callClientRates = rpc.declare({ object: 'luci.client-rates', method: 'get', params: [ 'addresses' ], expect: { '': {} } });
 var callIwInfo = rpc.declare({ object: 'iwinfo', method: 'info', params: [ 'device' ], expect: { '': {} } });
 var callAssoc = rpc.declare({ object: 'iwinfo', method: 'assoclist', params: [ 'device' ], expect: { results: [] } });
 var callRrdns = rpc.declare({ object: 'network.rrdns', method: 'lookup', params: [ 'addrs', 'timeout', 'limit' ], expect: { '': {} } });
@@ -564,19 +569,39 @@ return view.extend({
 				per.push(hostapd(ifn, 'get_status').then(function(v) { return [ 'hapdStatus', ifn, v ]; }));
 				per.push(L.resolveDefault(callIwInfo(ifn), {}).then(function(v) { return [ 'iwinfo', ifn, v ]; }));
 			});
+			/* per-client rates by address, where the firmware serves
+			   them: every address the host hints know, deduplicated
+			   and capped, so one device cannot fill the call. A
+			   missing object answers {} and simply adds no rates.
+			   Asked as one more part of the same poll, so it adds no
+			   extra wait to the side calls (switch ports). */
+			var addresses = [];
+			Object.keys(r[5] || {}).forEach(function(k) {
+				var h = r[5][k] || {};
+				[ 'ipaddrs', 'ip6addrs' ].forEach(function(f) {
+					(Array.isArray(h[f]) ? h[f] : []).forEach(function(ip) {
+						if (typeof ip !== 'string') return;
+						ip = ip.replace(/\/\d+$/, '');
+						if (ip && addresses.indexOf(ip) < 0 && addresses.length < 256) addresses.push(ip);
+					});
+				});
+			});
+			if (addresses.length) per.push(L.resolveDefault(callClientRates(addresses), {}).then(function(v) { return [ 'clientRates', '', v ]; }));
 			return Promise.all(per).then(function(parts) {
+				var clientRatesReply = {};
 				var assoc = Object.create(null), hapd = Object.create(null), hapdStatus = Object.create(null), iwinfo = Object.create(null);
 				parts.forEach(function(p) {
 					if (p[0] === 'assoc') assoc[p[1]] = p[2];
 					else if (p[0] === 'hapd') hapd[p[1]] = p[2];
 					else if (p[0] === 'hapdStatus') hapdStatus[p[1]] = p[2];
+					else if (p[0] === 'clientRates') clientRatesReply = p[2];
 					else iwinfo[p[1]] = p[2];
 				});
 				var switchState = Object.create(null);
 				Object.keys(swState).forEach(function(n) { switchState[n] = swState[n].ports; });
 				return { info: r[0] || {}, stat: r[1] || '', ifaces: r[2] || [], devs: r[3] || {}, wifi: wifiDevs, hints: r[5] || {}, thermal: r[6] || [],
 					fdb: Array.isArray(wiredReply.hosts) ? wiredReply.hosts : [], fdbCrowded: wiredReply.crowded === true, switches: switches, switchState: switchState,
-					assoc: assoc, hapd: hapd, hapdStatus: hapdStatus, iwinfo: iwinfo, at: Date.now(), started: started };
+					assoc: assoc, hapd: hapd, hapdStatus: hapdStatus, iwinfo: iwinfo, clientRates: clientRatesReply || {}, at: Date.now(), started: started };
 			});
 		});
 	},
@@ -602,6 +627,7 @@ return view.extend({
 		this.st = {
 			clock: null, stat: null, cpu: null,
 			devPrev: null, staPrev: null, devRates: Object.create(null), staRates: Object.create(null), radioRates: Object.create(null), ssidRates: Object.create(null),
+			clientRates: Object.create(null),
 			hist: { net: net, cpu: series.valid(stored.cpu, 2, HIST_MAX, now), mem: series.valid(stored.mem, 2, HIST_MAX, now) },
 			clientHist: clientHist, bestStd: Object.create(null),
 			presence: null, isNew: Object.create(null), gone: [],
@@ -689,6 +715,18 @@ return view.extend({
 		var sr = model.rates(st.staPrev, staCounters, at);
 		st.staPrev = sr.next;
 		if (Object.keys(sr.rates).length || !m.clients.length) st.staRates = sr.rates;
+		/* per-client rates by address, where the firmware serves them:
+		   the fallback for a driver that reports no station bytes at
+		   all (its counters stay 0 no matter the traffic). Only a
+		   station whose counter rate is missing or 0 takes the
+		   fallback, and only when the fallback itself is above 0, so
+		   a working counter is never replaced by a conntrack rate
+		   that misses traffic the driver does see (local, bridged). */
+		st.clientRates = model.parseClientRates(raw.clientRates);
+		m.clients.forEach(function(c) {
+			var f = st.clientRates[c.mac], r = st.staRates[c.mac];
+			if (f && f.rx + f.tx > 0 && (!r || r.rx + r.tx === 0)) st.staRates[c.mac] = f;
+		});
 		m.clients.forEach(function(c) {
 			var h = st.clientHist[c.mac] || (st.clientHist[c.mac] = []);
 			var r = st.staRates[c.mac];
@@ -1726,16 +1764,16 @@ return view.extend({
 			txt(sn.rate, r ? '↓ ' + fmt.bitsShort(r.tx) + '  ↑ ' + fmt.bitsShort(r.rx) : fmt.DASH);
 			sn.active = !!(r && r.rx + r.tx > 50e3);
 			/* each host on this port, in place: its name and link speed,
-			   and its own traffic for its wire (a shared port's traffic
-			   cannot be split between its hosts, so those wires stay
-			   static, as portRate already does elsewhere) */
+			   and its own traffic for its wire (a shared port's wire
+			   moves only when a per-client rate by address is
+			   served, as portRate already does elsewhere) */
 			(sn.hosts || []).forEach(function(hn) {
 				var c = hosts.filter(function(x) { return x.mac === hn.mac; })[0];
 				if (!c) return;
 				setTitle(hn.el, c.name + (c.speed ? ' · ' + fmt.phyRate(c.speed.mbps * 1000) : ''));
 				txt(hn.name, c.name);
 				txt(hn.sub, c.speed ? fmt.phyRate(c.speed.mbps * 1000) : fmt.DASH);
-				var hr = c.shared ? null : st.devRates[c.port] || null;
+				var hr = c.shared ? (st.clientRates && st.clientRates[c.mac]) || null : st.devRates[c.port] || null;
 				hn.rate = hr ? hr.rx + hr.tx : 0;
 				hn.active = !!(hr && hr.rx + hr.tx > 8000);
 			});
@@ -2452,9 +2490,13 @@ return view.extend({
 		this.el.clients.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
 	},
 
-	/* a wired host's traffic: its port's, when it has the port to itself */
+	/* a wired host's traffic: its port's, when it has the port to
+	   itself; on a shared port, the per-client rate by address where
+	   the firmware serves one, else nothing (the port total is not
+	   split between its hosts) */
 	portRate: function(c) {
-		return c.shared ? null : this.st.devRates[c.port] || null;
+		if (!c.shared) return this.st.devRates[c.port] || null;
+		return (this.st.clientRates && this.st.clientRates[c.mac]) || null;
 	},
 
 	sortValue: function(c, key) {
@@ -2681,7 +2723,8 @@ return view.extend({
 
 	/* a wired host's row. Its link is its port's when it has the port to
 	   itself; on a shared port (a switch or another access point behind
-	   it) neither the speed nor the traffic is its own */
+	   it) the speed is not its own, and the traffic is its own only
+	   when a per-client rate by address is served */
 	wiredCells: function(c, maxRate) {
 		var r = this.portRate(c), total = r ? r.rx + r.tx : 0;
 		var bar = E('span', { 'class': 'np-mini-fill' });
@@ -2703,7 +2746,7 @@ return view.extend({
 			this.whoCell(c, tags),
 			link,
 			E('td', { 'class': 'np-td-net', 'data-title': _('Network') }, [ E('div', { 'class': 'np-net' }, [ E('span', { 'class': 'np-net-ssid' }, [ c.network || c.bridge || fmt.DASH ]) ]) ]),
-			E('td', { 'class': 'np-td-live', 'data-title': _('Live') }, c.shared ? [
+			E('td', { 'class': 'np-td-live', 'data-title': _('Live') }, (c.shared && !r) ? [
 				E('span', { 'class': 'np-muted', 'title': _('Not counted per device on a shared port') }, [ fmt.DASH ])
 			] : [
 				E('div', { 'class': 'np-live-cell' }, [
@@ -3034,10 +3077,12 @@ return view.extend({
 					E('small', {}, [ c.switch ? _('behind %s, VLAN %d').format(c.switch.name, c.switch.vlan) : _('the port: %s').format(speed) ]) ]
 					: c.switchPort ? [ speed, E('small', {}, [ _('switch port %s').format(c.switchPort) ]) ] : speed),
 				c.switch ? kv(_('Switch ports'), switchLines(c.switch).map(function(l) { return E('div', {}, [ l ]); })) : '',
-				kv(_('Traffic'), c.shared ? [
+				kv(_('Traffic'), (c.shared && !r) ? [
 					E('span', { 'class': 'np-muted' }, [ _('Not counted per device on a shared port') ]),
 					shared ? E('small', {}, [ _('the port in total: %s').format('↓ ' + fmt.bits(shared.tx) + ' · ↑ ' + fmt.bits(shared.rx)) ]) : ''
-				] : r ?'↓ ' + fmt.bits(r.tx) + ' · ↑ ' + fmt.bits(r.rx) : _('measuring')),
+				] : r ? [ '↓ ' + fmt.bits(r.tx) + ' · ↑ ' + fmt.bits(r.rx),
+					(c.shared && shared) ? E('small', {}, [ _('the port in total: %s').format('↓ ' + fmt.bits(shared.tx) + ' · ↑ ' + fmt.bits(shared.rx)) ]) : ''
+				] : _('measuring')),
 				kv(_('Network'), [ c.network || c.bridge || fmt.DASH, c.vlan != null ? E('small', {}, [ _('VLAN %d').format(c.vlan) ]) : '' ]),
 				kv(_('Last heard'), c.seen == null ? _('static entry') : fmt.ago(c.seen * 1000))
 			]) ]),

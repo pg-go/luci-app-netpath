@@ -79,6 +79,30 @@ test('counterRate: states and bit/s', () => {
 	assert.equal(r.tx, 0);
 });
 
+test('parseClientRates: conntrack rates by address to bit/s by mac', () => {
+	const reply = {
+		source: 'conntrack',
+		rates: {
+			'192.0.2.10': { ready: true, mac: '02:00:5E:00:53:01', upload: 125, download: 1000 },
+			'192.0.2.11': { ready: false, mac: '02:00:5E:00:53:02', upload: 999, download: 999 },
+			'192.0.2.12': { ready: true, mac: 'not-a-mac', upload: 1, download: 1 },
+			'192.0.2.13': { ready: true, mac: '02:00:5E:00:53:03', upload: -5, download: -5 },
+			'2001:db8::10': { ready: true, mac: '02:00:5E:00:53:01', upload: 0, download: 0 }
+		}
+	};
+	const out = model.parseClientRates(reply);
+	/* summed across a mac's addresses; upload is from the device (rx),
+	   download to it (tx), both converted bytes/s to bit/s */
+	assert.deepEqual(out['02:00:5e:00:53:01'], { rx: 1000, tx: 8000 });
+	assert.equal(out['02:00:5e:00:53:02'], undefined);
+	assert.equal(out['02:00:5e:00:53:03'], undefined);
+	const single = model.parseClientRates({ rates: { '192.0.2.10': { ready: true, mac: '02:00:5E:00:53:01', upload: 125, download: 1000 } } });
+	assert.deepEqual(single['02:00:5e:00:53:01'], { rx: 1000, tx: 8000 });
+	assert.deepEqual(Object.keys(model.parseClientRates(null)), []);
+	assert.deepEqual(Object.keys(model.parseClientRates({})), []);
+	assert.deepEqual(Object.keys(model.parseClientRates({ rates: null })), []);
+});
+
 test('rates: keeps only present keys, skip keeps the old base', () => {
 	const a = model.rates(null, { x: { rx: 0, tx: 0 }, y: { rx: 0, tx: 0 } }, 0);
 	assert.deepEqual(Object.keys(a.rates), []);
