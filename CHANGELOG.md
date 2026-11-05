@@ -13,6 +13,16 @@ Each release ships both packages, `luci-theme-vantage` and
 <https://github.com/anothaDev/luci-theme-vantage/releases> and in the
 [signed repositories](https://anothadev.github.io/luci-theme-vantage/).
 
+## 1.0.15 - 2026-11-05
+
+- **Per-client rates on firmware whose wireless driver reports no
+  station bytes.** Where `luci.client-rates` serves rates by address
+  (conntrack, as on QWRT), the dashboard uses them as a fallback:
+  Wi-Fi stations whose station counters stay at 0, and wired hosts
+  sharing a port, now get a per-device rate instead of a static wire.
+  Systems with working station or port counters are unchanged, and
+  systems without that object degrade exactly as before.
+
 ## 1.0.14 - 2026-11-03
 
 - **The spinner while changes are applied turns smoothly** (#71,

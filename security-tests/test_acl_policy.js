@@ -87,6 +87,8 @@ const READ_UBUS = {
 	'luci-rpc': [ 'getHostHints' ],
 	/* LuCI's own: swconfig dev <switch> show, the switch name quoted */
 	'luci': [ 'getSwconfigPortState' ],
+	/* vendor firmware's conntrack per-client rates, fallback only */
+	'luci.client-rates': [ 'get' ],
 	'luci.netpath': [ 'thermal', 'wired', 'wireless' ],
 	'iwinfo': [ 'assoclist', 'info' ],
 	'hostapd.*': [ 'get_clients', 'get_status' ],

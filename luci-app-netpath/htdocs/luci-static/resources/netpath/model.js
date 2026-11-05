@@ -149,6 +149,33 @@ return baseclass.extend({
 		return { at: now, local: local };
 	},
 
+	/* A conntrack per-client rate reply (luci.client-rates get, as some
+	   vendor firmware serves it) -> { mac: { rx, tx } } in bit/s, the
+	   same units as rates() above: the reply's upload is from the
+	   device, download to it, both in bytes/s, and only entries with
+	   ready true carry a rate yet. Keyed by the reply's own mac, not
+	   by the queried address, and summed across a device's addresses,
+	   so a device on IPv4 and IPv6 still lands on one rate.
+	   Anything unusable (no mac, not ready, a negative or absurd
+	   rate) is left out, so a broken source degrades to no rate,
+	   never to a wrong one. */
+	parseClientRates: function(reply) {
+		var byMac = Object.create(null), rates = obj(obj(reply).rates);
+		Object.keys(rates).forEach(function(ip) {
+			var r = obj(rates[ip]), mac = names.normMac(r.mac);
+			if (!mac || r.ready !== true) return;
+			var up = num(r.upload), down = num(r.download);
+			if (!(up >= 0) && !(down >= 0)) return;
+			if (!(up >= 0)) up = 0;
+			if (!(down >= 0)) down = 0;
+			var cur = byMac[mac] || { rx: 0, tx: 0 };
+			cur.rx += up * 8; cur.tx += down * 8;
+			if (cur.rx + cur.tx > MAX_BPS) { delete byMac[mac]; return; }
+			byMac[mac] = cur;
+		});
+		return byMac;
+	},
+
 	/* Rates for a set of counters { key: { rx, tx } } captured at `at`.
 	   Returns { next, rates }; next holds only keys present now, so the
 	   state cannot grow with every station that ever associated. */
