@@ -13,6 +13,18 @@ Each release ships both packages, `luci-theme-vantage` and
 <https://github.com/anothaDev/luci-theme-vantage/releases> and in the
 [signed repositories](https://anothadev.github.io/luci-theme-vantage/).
 
+## 1.0.16 - 2026-11-05
+
+- **Standalone dashboard web, port 8080, no password, dashboard only.**
+  A second uhttpd instance (`uhttpd.netpath`) serves only the
+  dashboard at `http://<router>:8080/` and its read-only JSON API
+  (`/cgi-bin/api.sh`): no LuCI, no `/ubus`, no other page, no write
+  of any kind (no alias edit, no settings). It has no login by
+  design, so anyone who can reach the port can see the dashboard;
+  the firewall decides who that is — by default WAN input is
+  REJECT, so it is LAN-only until a wan-to-device rule for 8080
+  is added. See `docs/STANDALONE.md`.
+
 ## 1.0.15 - 2026-11-05
 
 - **Per-client rates on firmware whose wireless driver reports no

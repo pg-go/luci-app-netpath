@@ -10,7 +10,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-netpath
-PKG_VERSION:=1.0.15
+PKG_VERSION:=1.0.16
 PKG_RELEASE:=1
 PKG_LICENSE:=GPL-3.0-or-later
 
@@ -42,6 +42,25 @@ PKG_PO_VERSION:=$(PKG_VERSION)-r$(PKG_RELEASE)
 
 define Package/luci-app-netpath/conffiles
 /etc/config/netpath
+endef
+
+# Standalone web (port 8080, no password, dashboard only): the setup
+# script is etc/uci-defaults/99-netpath-web. postinst/postrm must be
+# defined BEFORE luci.mk, or luci.mk's default postinst (cache clear
+# only) replaces them and the second uhttpd instance is never created.
+define Package/luci-app-netpath/postinst
+#!/bin/sh
+[ -f /etc/uci-defaults/99-netpath-web ] && /bin/sh /etc/uci-defaults/99-netpath-web
+exit 0
+endef
+
+define Package/luci-app-netpath/postrm
+#!/bin/sh
+[ -x /usr/sbin/uci ] || exit 0
+uci delete uhttpd.netpath 2>/dev/null
+uci commit uhttpd 2>/dev/null
+/etc/init.d/uhttpd reload 2>/dev/null || true
+exit 0
 endef
 
 include $(TOPDIR)/feeds/luci/luci.mk
