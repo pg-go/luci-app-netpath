@@ -22,9 +22,18 @@ LuCI 菜单，没有设置入口，改名（set_alias）也没有。
   wired、luci-rpc getHostHints、uci get netpath、iwinfo
   assoclist/info、luci.client-rates get），不写 uci、不写文件、
   不调 set_alias、不执行请求里带来的任何东西。
-- 安装时由 `etc/uci-defaults/99-netpath-web` 建这个实例，
-  `Makefile` 里的 postinst 在装包时也会跑它一次（幂等，已有
-  就不动）。卸包时 postrm 会删掉 `uhttpd.netpath` 这一节。
+- 安装时由 `Makefile` 里的 postinst 建这个实例（幂等，已有
+  就不动）。故意不用 `root/etc/uci-defaults/` 下的文件：那
+  个文件在 git 里是 0644，打出来的包却要求 0755，构建校验
+  会直接失败；postinst 是包脚本，一定是可执行的，装包时
+  跑、进固件时首启跑。卸包时 postrm 会删掉 `uhttpd.netpath`
+  这一节。
+- 前端三件（index.html、app.js、app.css）放在
+  `htdocs/netpath/`，不是 `root/www/netpath/`：luci.mk 只对
+  htdocs 复制的那份跑 JsMin，root/ 复制的那份不跑，app.js
+  放 root/ 下打出来的包是未压缩的，构建校验按 jsmin 的
+  输出比对也会失败。放 htdocs 下，装出来的路径还是
+  `/www/netpath/`，不变。
 
 ## 安全：先看懂再放外网
 
@@ -56,6 +65,26 @@ curl -s http://127.0.0.1:8080/ | head -n 5
   `http://路由器 IP:8080/ubus` 也应打不开。
 - 如果 8080 打不开，先看 uhttpd 在不在跑、netpath 这一节
   在不在，再看防火墙有没有拦 8080。
+
+## 如果装完 8080 还没起来
+
+postinst 只在装包 / 首启时跑一次。如果是编进固件的包，
+首启没跑起来，就手动跑一次下面这几条（就是 postinst 里
+的原样）：
+
+```sh
+uci set uhttpd.netpath=uhttpd
+uci add_list uhttpd.netpath.listen_http='0.0.0.0:8080'
+uci add_list uhttpd.netpath.listen_http='[::]:8080'
+uci set uhttpd.netpath.home='/www/netpath'
+uci set uhttpd.netpath.cgi_prefix='/cgi-bin'
+uci add_list uhttpd.netpath.interpreter='.sh=/bin/sh'
+uci set uhttpd.netpath.max_requests='3'
+uci set uhttpd.netpath.rfc1918_filter='0'
+uci commit uhttpd
+chmod 755 /www/netpath/cgi-bin/api.sh
+/etc/init.d/uhttpd reload
+```
 
 ## 关掉它
 

@@ -3,7 +3,17 @@
    the second uhttpd instance serves only /www/netpath, the API is
    GET-only and read-only, and no LuCI page is reachable on that port.
    These tests run without a device: the API is run with a mock ubus
-   in PATH, and the rest is static checks on the shipped files. */
+   in PATH, and the rest is static checks on the shipped files.
+   Layout, learned from the 1.0.16 SDK build failure:
+   - the frontend lives in htdocs/netpath/, not root/www/netpath/:
+     luci.mk runs JsMin only on the htdocs copy (before root/ is
+     copied), so a root/ .js file ships unminified while the verifier
+     expects jsmin output, and the build fails;
+   - there is no root/etc/uci-defaults/ file: a uci-defaults file
+     shipped 0644 in git fails the verifier (it must ship 0755, and
+     git mode 0755 does not survive the connector push). The setup
+     lives in the Makefile postinst instead, which is a package
+     script and is always executable. */
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -13,16 +23,17 @@ const path = require('node:path');
 const os = require('node:os');
 
 const ROOT = path.join(__dirname, '..');
-const WEB = path.join(ROOT, 'luci-app-netpath/root/www/netpath');
-const API = path.join(WEB, 'cgi-bin/api.sh');
-const SETUP = path.join(ROOT, 'luci-app-netpath/root/etc/uci-defaults/99-netpath-web');
+const WEB = path.join(ROOT, 'luci-app-netpath/htdocs/netpath');
+const API = path.join(ROOT, 'luci-app-netpath/root/www/netpath/cgi-bin/api.sh');
 const MAKEFILE = path.join(ROOT, 'luci-app-netpath/Makefile');
 
 function read(p) { return fs.readFileSync(p, 'utf8'); }
 
 test('standalone: files exist, no LuCI links, no write in the API', () => {
-	for (const p of [path.join(WEB, 'index.html'), path.join(WEB, 'app.js'), path.join(WEB, 'app.css'), API, SETUP])
+	for (const p of [path.join(WEB, 'index.html'), path.join(WEB, 'app.js'), path.join(WEB, 'app.css'), API])
 		assert.ok(fs.existsSync(p), p + ' exists');
+	assert.ok(!fs.existsSync(path.join(ROOT, 'luci-app-netpath/root/etc/uci-defaults')),
+		'no root/etc/uci-defaults/ file: it would ship 0644 and fail verify_built_apk');
 	const html = read(path.join(WEB, 'index.html'));
 	assert.ok(!/cgi-bin\/luci|\/ubus|sysauth|luci-static/.test(html), 'standalone page links no LuCI');
 	const api = read(API);
@@ -36,14 +47,16 @@ test('standalone: files exist, no LuCI links, no write in the API', () => {
 	assert.ok(!/innerHTML|set_alias|fetch\(.*POST/.test(js), 'frontend never writes');
 });
 
-test('standalone: uhttpd.netpath is dashboard-only', () => {
-	const s = read(SETUP);
-	assert.ok(/uhttpd\.netpath/.test(s), 'creates uhttpd.netpath');
-	assert.ok(/8080/.test(s), 'port 8080');
-	assert.ok(/home='\/www\/netpath'/.test(s), 'home is /www/netpath only');
-	assert.ok(!/uci (set|add_list).*lua_prefix|uci (set|add_list).*ubus_prefix/.test(s), 'no LuCI / ubus on this instance');
-	assert.ok(/interpreter='.sh=\/bin\/sh'/.test(s), 'interpreter fallback for the 644 CGI script');
-	assert.ok(/uci get uhttpd\.netpath/.test(s), 'idempotent: existing section is left alone');
+test('standalone: uhttpd.netpath is dashboard-only, set up by postinst', () => {
+	const mk = read(MAKEFILE);
+	const post = mk.slice(mk.indexOf('define Package/luci-app-netpath/postinst'), mk.indexOf('include $(TOPDIR)/feeds/luci/luci.mk'));
+	assert.ok(/uhttpd\.netpath/.test(post), 'postinst creates uhttpd.netpath');
+	assert.ok(/8080/.test(post), 'port 8080');
+	assert.ok(/home='\/www\/netpath'/.test(post), 'home is /www/netpath only');
+	assert.ok(!/lua_prefix|ubus_prefix/.test(post.replace(/No lua_prefix, no ubus_prefix/g, '')), 'no LuCI / ubus on this instance');
+	assert.ok(/interpreter='.sh=\/bin\/sh'/.test(post), 'interpreter fallback for the 644 CGI script');
+	assert.ok(/uci get uhttpd\.netpath/.test(post), 'idempotent: existing section is left alone');
+	assert.ok(/IPKG_INSTROOT/.test(post), 'postinst does nothing while building an image');
 });
 
 test('standalone: Makefile postinst/postrm are before luci.mk', () => {
@@ -52,15 +65,12 @@ test('standalone: Makefile postinst/postrm are before luci.mk', () => {
 	const post = mk.indexOf('define Package/luci-app-netpath/postinst');
 	const luci = mk.indexOf('include $(TOPDIR)/feeds/luci/luci.mk');
 	assert.ok(post > 0 && post < luci, 'postinst is defined before luci.mk');
-	assert.ok(/99-netpath-web/.test(mk.slice(post, luci)), 'postinst runs the setup script');
 	assert.ok(mk.indexOf('define Package/luci-app-netpath/postrm') > 0, 'postrm removes the section');
 });
 
-test('standalone: shell syntax of the API and setup scripts', () => {
-	for (const p of [API, SETUP]) {
-		const r = spawnSync('sh', ['-n', p], { encoding: 'utf8' });
-		assert.equal(r.status, 0, p + ' passes sh -n: ' + r.stderr);
-	}
+test('standalone: shell syntax of the API script', () => {
+	const r = spawnSync('sh', ['-n', API], { encoding: 'utf8' });
+	assert.equal(r.status, 0, API + ' passes sh -n: ' + r.stderr);
 });
 
 test('standalone: API with a mock ubus returns valid JSON, read-only fields only', () => {
@@ -105,6 +115,13 @@ test('standalone: API with a mock ubus returns valid JSON, read-only fields only
 	fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test('standalone: frontend JS parses', () => {
+test('standalone: frontend JS parses and jsmin accepts it', () => {
 	execFileSync('node', ['--check', path.join(WEB, 'app.js')], { encoding: 'utf8' });
+	/* jsmin is LuCI's minifier; if the SDK's copy is available, the
+	   packaged file must be its output, so the source must survive it */
+	const jsmin = process.env.NETPATH_JSMIN;
+	if (!jsmin) return;
+	const r = spawnSync(jsmin, [], { input: read(path.join(WEB, 'app.js')), encoding: 'utf8', maxBuffer: 64 << 20 });
+	assert.equal(r.status, 0, 'jsmin accepts app.js');
+	execFileSync('node', ['--check', '-'], { input: r.stdout, encoding: 'utf8' });
 });

@@ -45,12 +45,30 @@ define Package/luci-app-netpath/conffiles
 endef
 
 # Standalone web (port 8080, no password, dashboard only): the setup
-# script is etc/uci-defaults/99-netpath-web. postinst/postrm must be
-# defined BEFORE luci.mk, or luci.mk's default postinst (cache clear
-# only) replaces them and the second uhttpd instance is never created.
+# lives in postinst, not in a root/etc/uci-defaults/ file. A uci-defaults
+# file shipped 0644 in git fails verify_built_apk (it must ship 0755,
+# and git mode 0755 does not survive the connector push), while a
+# postinst is a package script, always executable, and is run on
+# install and, for a firmware image, on first boot. postinst/postrm
+# must be defined BEFORE luci.mk, or luci.mk's default postinst
+# (cache clear only) replaces them and the second uhttpd instance
+# is never created.
 define Package/luci-app-netpath/postinst
 #!/bin/sh
-[ -f /etc/uci-defaults/99-netpath-web ] && /bin/sh /etc/uci-defaults/99-netpath-web
+[ -n "$${IPKG_INSTROOT}" ] && exit 0
+[ -x /usr/sbin/uci ] || exit 0
+uci get uhttpd.netpath >/dev/null 2>&1 && exit 0
+uci set uhttpd.netpath=uhttpd
+uci add_list uhttpd.netpath.listen_http='0.0.0.0:8080'
+uci add_list uhttpd.netpath.listen_http='[::]:8080'
+uci set uhttpd.netpath.home='/www/netpath'
+uci set uhttpd.netpath.cgi_prefix='/cgi-bin'
+uci add_list uhttpd.netpath.interpreter='.sh=/bin/sh'
+uci set uhttpd.netpath.max_requests='3'
+uci set uhttpd.netpath.rfc1918_filter='0'
+uci commit uhttpd
+[ -f /www/netpath/cgi-bin/api.sh ] && chmod 755 /www/netpath/cgi-bin/api.sh 2>/dev/null
+/etc/init.d/uhttpd reload 2>/dev/null || /etc/init.d/uhttpd restart 2>/dev/null || true
 exit 0
 endef
 
